@@ -70,7 +70,10 @@ class Tests(unittest.TestCase):
         # Run a local mongo on 27017 for testing
         # docker run -p 27017:27017 mongo <-- fire one up with docker if required
         self.client = MongoClient('localhost', 27017)
-        whogoesthere.blueprint.BLUEPRINT.config['db'] = self.client['whogoesthere_test']
+        whogoesthere.blueprint.BLUEPRINT.config['authentication_db'] = \
+            self.client['whogoesthere_test']
+        whogoesthere.blueprint.BLUEPRINT.config['authorization_db'] = \
+            self.client['whogoesthere_test']
         self.app = whogoesthere.app.test_client()
 
     def tearDown(self):

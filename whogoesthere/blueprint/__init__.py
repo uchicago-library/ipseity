@@ -63,12 +63,12 @@ class MakeUser(Resource):
 
         log.debug("Attempting to create user: {}".format(args['user']))
 
-        if BLUEPRINT.config['db']['authentication'].find_one({'user': args['user']}):
+        if BLUEPRINT.config['authentication_db']['authentication'].find_one({'user': args['user']}):
             log.info("User creation failed, user {} already exists".format(args['user']))
             abort(403)
 
         log.debug("Attempting to create user {}".format(args['user']))
-        BLUEPRINT.config['db']['authentication'].insert_one(
+        BLUEPRINT.config['authentication_db']['authentication'].insert_one(
             {
                 'user': args['user'],
                 'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt())
@@ -89,7 +89,7 @@ class AuthUser(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        user = BLUEPRINT.config['db']['authentication'].find_one(
+        user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
             {'user': args['user']}
         )
 
@@ -109,7 +109,7 @@ class AuthUser(Resource):
             'nbf': datetime.datetime.utcnow(),
             'iat': datetime.datetime.utcnow()
         }
-        authorization = BLUEPRINT.config['db']['authorization'].find_one(
+        authorization = BLUEPRINT.config['authorization_db']['authorization'].find_one(
             {'user': args['user']}
         )
         if authorization:
@@ -150,11 +150,20 @@ def handle_configs(setup_state):
         log.debug("DEFER_CONFIG set, skipping configuration")
         return
 
-    client = MongoClient(
-        BLUEPRINT.config['MONGO_HOST'],
-        int(BLUEPRINT.config.get('MONGO_PORT', 27017))
+    authentication_client = MongoClient(
+        BLUEPRINT.config['AUTHENTICATION_MONGO_HOST'],
+        int(BLUEPRINT.config.get('AUTHENTICATION_MONGO_PORT', 27017))
     )
-    BLUEPRINT.config['db'] = client[BLUEPRINT.config.get('MONGO_DB', 'whogoesthere')]
+    BLUEPRINT.config['authentication_db'] = \
+        authentication_client[BLUEPRINT.config.get('AUTHENTICATION_MONGO_DB', 'whogoesthere')]
+
+    authorization_client = MongoClient(
+        BLUEPRINT.config.get('AUTHORIZATION_MONGO_HOST',
+                             BLUEPRINT.config['AUTHENTICATION_MONGO_PORT']),
+        int(BLUEPRINT.config.get("AUTHORIZATION_MONGO_PORT", 27017))
+    )
+    BLUEPRINT.config['authorization_db'] = \
+        authorization_client[BLUEPRINT.config.get('AUTHORIZATION_MONGO_DB', 'whogoesthere')]
 
     if BLUEPRINT.config.get("VERBOSITY"):
         log.debug("Setting verbosity to {}".format(str(BLUEPRINT.config['VERBOSITY'])))
