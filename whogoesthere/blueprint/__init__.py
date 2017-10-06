@@ -47,7 +47,7 @@ class Version(Resource):
 
 class PublicKey(Resource):
     def get(self):
-        return {"public_key": BLUEPRINT.config['PUBLIC_KEY']}
+        return Response(BLUEPRINT.config['PUBLIC_KEY'])
 
 
 class MakeUser(Resource):

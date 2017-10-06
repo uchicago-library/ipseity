@@ -100,11 +100,10 @@ class Tests(unittest.TestCase):
     def test_pubkey(self):
         pubkey_response = self.app.get("/pubkey")
         self.assertEqual(pubkey_response.status_code, 200)
-        pubkey_json = json.loads(pubkey_response.data.decode())
-        reported_pubkey = pubkey_json['public_key']
+        pubkey = pubkey_response.data.decode()
         self.assertEqual(
             whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY'],
-            reported_pubkey
+            pubkey
         )
 
     def test_make_user(self):
