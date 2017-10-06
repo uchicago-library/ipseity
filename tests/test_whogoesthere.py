@@ -86,6 +86,10 @@ class Tests(unittest.TestCase):
     def testPass(self):
         self.assertEqual(True, True)
 
+    def testRoot(self):
+        r = self.app.get("/")
+        self.assertEqual(r.status_code, 200)
+
     def testVersionAvailable(self):
         x = getattr(whogoesthere, "__version__", None)
         self.assertTrue(x is not None)
