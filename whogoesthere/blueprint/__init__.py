@@ -3,6 +3,7 @@ whogoesthere
 """
 import logging
 import datetime
+import json
 
 from flask import Blueprint, jsonify, Response, abort
 from flask_restful import Resource, Api, reqparse
@@ -30,6 +31,7 @@ log = logging.getLogger(__name__)
 
 @BLUEPRINT.errorhandler(Error)
 def handle_errors(error):
+    log.error("An error has occured: {}".format(json.dumps(error.to_dict())))
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
@@ -59,15 +61,21 @@ class MakeUser(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
+        log.debug("Attempting to create user: {}".format(args['user']))
+
         if BLUEPRINT.config['db']['authentication'].find_one({'user': args['user']}):
+            log.info("User creation failed, user {} already exists".format(args['user']))
             abort(403)
 
+        log.debug("Attempting to create user {}".format(args['user']))
         BLUEPRINT.config['db']['authentication'].insert_one(
             {
                 'user': args['user'],
                 'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt())
             }
         )
+
+        log.info("User {} created".format(args['user']))
 
         return {"success": True}
 
@@ -85,10 +93,15 @@ class AuthUser(Resource):
             {'user': args['user']}
         )
 
+        log.debug("Attempting to auth {} via password".format(args['user']))
+
         if not user:
+            log.debug("Username {} does not exist".format(args['user']))
             abort(404)
         if not bcrypt.checkpw(args['pass'].encode(), user['password']):
+            log.debug("Incorrect password provided for username {}".format(args['user']))
             abort(404)
+        log.debug("Assembling token for {}".format(args['user']))
         token = {
             'user': args['user'],
             'exp': datetime.datetime.utcnow() +
@@ -100,8 +113,10 @@ class AuthUser(Resource):
             {'user': args['user']}
         )
         if authorization:
+            log.debug("Username {} has associated authorization information".format(args['user']))
             token.update(authorization)
         encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
+        log.debug("User {} successfully authenticated".format(args['user']))
         return Response(encoded_token.decode())
 
 
@@ -112,14 +127,18 @@ class CheckToken(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
+        log.debug("Checking token: {}".format(args['token']))
+
         try:
             jwt.decode(
                 args['token'].encode(),
                 BLUEPRINT.config['PUBLIC_KEY'],
                 algorithm="RS256"
             )
+            log.debug("Valid token provided: {}".format(args['token']))
             return {"token_status": "valid"}
-        except:
+        except jwt.InvalidTokenError:
+            log.debug("Invalid token provided: {}".format(args['token']))
             return {"token_status": "invalid"}
 
 
