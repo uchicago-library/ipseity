@@ -65,9 +65,11 @@ Inject environmental variables appropriately at either buildtime or runtime
 * JSON: {"token_status": "valid||invalid"}
 
 # Environmental Variables
+## Required
+* WHOGOESTHERE_AUTHENTICATION_MONGO_HOST: The IP address or hostname of the mongo server for authentication data
 * WHOGOESTHERE_PUBLIC_KEY: A public rsa key in ssh format
 * WHOGOESTHERE_PRIVATE_KEY: A private rsa key in ssh format
-* WHOGOESTHERE_AUTHENTICATION_MONGO_HOST: The IP address or hostname of the mongo server for authentication data
+## Optional (defaults)
 * WHOGOESTHERE_AUTHENTICATION_MONGO_PORT (27017): The port the Mongo server is running on
 * WHOGOESTHERE_AUTHENTICATION_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
 * WHOGOESTHERE_AUTHORIZATION_MONGO_HOST ($WHOGOESTHERE_AUTHENTICATION_MONGO_HOST): The IP address or hostname of the mongo server for authorization data
