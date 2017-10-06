@@ -25,3 +25,8 @@ class UserDoesNotExistError(Error):
 class IncorrectPasswordError(Error):
     err_name = "IncorrectPasswordError"
     status_code = 404
+
+
+class InvalidTokenError(Error):
+    err_name = "InvalidTokenError"
+    status_code = 400

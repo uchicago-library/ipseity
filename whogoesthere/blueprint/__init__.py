@@ -14,7 +14,7 @@ import bcrypt
 from pymongo import MongoClient
 
 from .exceptions import Error, UserAlreadyExistsError, \
-    UserDoesNotExistError, IncorrectPasswordError
+    UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError
 
 __author__ = "Brian Balsamo"
 __email__ = "brian@brianbalsamo.com"
@@ -131,16 +131,16 @@ class CheckToken(Resource):
         log.debug("Checking token: {}".format(args['token']))
 
         try:
-            jwt.decode(
+            token = jwt.decode(
                 args['token'].encode(),
                 BLUEPRINT.config['PUBLIC_KEY'],
                 algorithm="RS256"
             )
             log.debug("Valid token provided: {}".format(args['token']))
-            return {"token_status": "valid"}
+            return token
         except jwt.InvalidTokenError:
             log.debug("Invalid token provided: {}".format(args['token']))
-            return {"token_status": "invalid"}
+            raise InvalidTokenError
 
 
 @BLUEPRINT.record

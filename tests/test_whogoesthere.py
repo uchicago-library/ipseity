@@ -159,7 +159,7 @@ class Tests(unittest.TestCase):
         token_check_response = self.app.get("/check", data={'token': authentication_token})
         self.assertEqual(token_check_response.status_code, 200)
         token_check_json = json.loads(token_check_response.data.decode())
-        self.assertEqual(token_check_json['token_status'], 'valid')
+        self.assertEqual(token_check_json['user'], 'foo')
 
     def test_invalid_token(self):
         self.test_make_user()
@@ -172,9 +172,7 @@ class Tests(unittest.TestCase):
         else:
             authentication_token = 'b' + authentication_token[1:]
         token_check_response = self.app.get("/check", data={'token': authentication_token})
-        self.assertEqual(token_check_response.status_code, 200)
-        token_check_json = json.loads(token_check_response.data.decode())
-        self.assertEqual(token_check_json['token_status'], 'invalid')
+        self.assertEqual(token_check_response.status_code, 400)
 
 
 if __name__ == "__main__":
