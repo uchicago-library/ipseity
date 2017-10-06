@@ -1,0 +1,13 @@
+version: "3.0"
+services:
+    mongo:
+        image: "mongo"
+    whogoesthere:
+        build:
+            context: .
+        environment:
+            WHOGOESTHERE_MONGO_HOST: "mongo"
+        ports:
+            - "80:80"
+        depends_on:
+            - mongo
