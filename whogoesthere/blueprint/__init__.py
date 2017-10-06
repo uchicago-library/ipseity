@@ -159,7 +159,7 @@ def handle_configs(setup_state):
 
     authorization_client = MongoClient(
         BLUEPRINT.config.get('AUTHORIZATION_MONGO_HOST',
-                             BLUEPRINT.config['AUTHENTICATION_MONGO_PORT']),
+                             BLUEPRINT.config['AUTHENTICATION_MONGO_HOST']),
         int(BLUEPRINT.config.get("AUTHORIZATION_MONGO_PORT", 27017))
     )
     BLUEPRINT.config['authorization_db'] = \
