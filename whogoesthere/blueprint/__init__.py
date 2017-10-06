@@ -5,7 +5,7 @@ import logging
 import datetime
 import json
 
-from flask import Blueprint, jsonify, Response, abort
+from flask import Blueprint, jsonify, Response
 from flask_restful import Resource, Api, reqparse
 
 import jwt
@@ -13,7 +13,8 @@ import bcrypt
 
 from pymongo import MongoClient
 
-from .exceptions import Error
+from .exceptions import Error, UserAlreadyExistsError, \
+    UserDoesNotExistError, IncorrectPasswordError
 
 __author__ = "Brian Balsamo"
 __email__ = "brian@brianbalsamo.com"
@@ -65,7 +66,7 @@ class MakeUser(Resource):
 
         if BLUEPRINT.config['authentication_db']['authentication'].find_one({'user': args['user']}):
             log.info("User creation failed, user {} already exists".format(args['user']))
-            abort(403)
+            raise UserAlreadyExistsError(args['user'])
 
         log.debug("Attempting to create user {}".format(args['user']))
         BLUEPRINT.config['authentication_db']['authentication'].insert_one(
@@ -97,10 +98,10 @@ class AuthUser(Resource):
 
         if not user:
             log.debug("Username {} does not exist".format(args['user']))
-            abort(404)
+            raise UserDoesNotExistError(args['user'])
         if not bcrypt.checkpw(args['pass'].encode(), user['password']):
             log.debug("Incorrect password provided for username {}".format(args['user']))
-            abort(404)
+            raise IncorrectPasswordError(args['user'])
         log.debug("Assembling token for {}".format(args['user']))
         token = {
             'user': args['user'],

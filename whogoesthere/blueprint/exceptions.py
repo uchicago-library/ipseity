@@ -10,3 +10,18 @@ class Error(Exception):
     def to_dict(self):
         return {"message": self.message,
                 "error_name": self.err_name}
+
+
+class UserAlreadyExistsError(Error):
+    err_name = "UserAlreadyExistsError"
+    status_code = 403
+
+
+class UserDoesNotExistError(Error):
+    err_name = "UserDoesNotExistError"
+    status_code = 404
+
+
+class IncorrectPasswordError(Error):
+    err_name = "IncorrectPasswordError"
+    status_code = 404
