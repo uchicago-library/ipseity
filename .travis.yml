@@ -9,7 +9,6 @@ install:
 script: 
     - coverage run --source whogoesthere -m py.test 
     - docker build . -t proj 
-    - docker run proj python /code/tests/test_whogoesthere.py 
     - flake8 --exit-zero
 after_success:
     - coverage report
