@@ -156,7 +156,7 @@ class Tests(unittest.TestCase):
                                                data={'user': 'foo', 'pass': 'bar'})
         self.assertEqual(authentication_response.status_code, 200)
         authentication_token = authentication_response.data.decode()
-        token_check_response = self.app.get("/check", data={'token': authentication_token})
+        token_check_response = self.app.get("/check", data={'access_token': authentication_token})
         self.assertEqual(token_check_response.status_code, 200)
         token_check_json = json.loads(token_check_response.data.decode())
         self.assertEqual(token_check_json['user'], 'foo')

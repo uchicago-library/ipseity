@@ -6,6 +6,11 @@ v0.0.1
 
 An authentication API
 
+[Authentication != Authorization](https://serverfault.com/questions/57077/what-is-the-difference-between-authentication-and-authorization)
+
+This package also provides some utilities for utilizing a remote whogoesthere server in your own APIs, as well as some minimal functional decorators for requiring authentication, or implementing your own authorization decorator.
+
+
 # Debug Quickstart
 Set environmental variables appropriately
 ```
@@ -60,9 +65,16 @@ Inject environmental variables appropriately at either buildtime or runtime
 ## /check
 ### GET
 #### Parameters
-* token (str): An encoded jwt token
+* access_token (str): An encoded jwt token
 #### Returns
-* JSON: {"token_status": "valid||invalid"}
+* JSON: A decoded JWT token, or a 400
+
+## /test
+### GET
+#### Parameters
+* access_token (str): An encoded jwt token
+#### Returns
+* JSON: The token, if validation occured or 401
 
 # Environmental Variables
 ## Required
@@ -77,6 +89,8 @@ Inject environmental variables appropriately at either buildtime or runtime
 * WHOGOESTHERE_AUTHORIZATION_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
 * WHOGOESTHERE_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
 * WHOGOESTHERE_VERBOSITY (WARN): The verbosity of the logs
+## Strictly for the utils
+* WHOGOESTHERE_URL: A remote URL to retrieve a public key from, which will be employed by the decorators in order to validate tokens on incoming requests if a public key isn't provided
 
 # Author
 Brian Balsamo <brian@brianbalsamo.com>

@@ -13,6 +13,7 @@ import bcrypt
 
 from pymongo import MongoClient
 
+from ..utils import requires_authentication, requires_authorization
 from .exceptions import Error, UserAlreadyExistsError, \
     UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError
 
@@ -124,23 +125,32 @@ class AuthUser(Resource):
 class CheckToken(Resource):
     def get(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('token', type=str, required=True,
+        parser.add_argument('access_token', type=str, required=True,
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        log.debug("Checking token: {}".format(args['token']))
+        log.debug("Checking token: {}".format(args['access_token']))
 
         try:
             token = jwt.decode(
-                args['token'].encode(),
+                args['access_token'].encode(),
                 BLUEPRINT.config['PUBLIC_KEY'],
                 algorithm="RS256"
             )
-            log.debug("Valid token provided: {}".format(args['token']))
+            log.debug("Valid token provided: {}".format(args['access_token']))
             return token
         except jwt.InvalidTokenError:
-            log.debug("Invalid token provided: {}".format(args['token']))
+            log.debug("Invalid token provided: {}".format(args['access_token']))
             raise InvalidTokenError
+
+
+class Test(Resource):
+    @requires_authentication
+    @requires_authorization
+    def get(self, access_token=None):
+        if not access_token:
+            raise ValueError("No token!")
+        return access_token
 
 
 @BLUEPRINT.record
@@ -180,3 +190,4 @@ API.add_resource(PublicKey, "/pubkey")
 API.add_resource(MakeUser, "/make_user")
 API.add_resource(AuthUser, "/auth_user")
 API.add_resource(CheckToken, "/check")
+API.add_resource(Test, "/test")
