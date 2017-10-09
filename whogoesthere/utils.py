@@ -15,6 +15,7 @@ def _check_token(token):
     Tries to check against a provided public key (if one exists)
     """
     from . import app
+    global WHOGOESTHERE_URL
 
     public_key = app.config.get('PUBLIC_KEY')
     if not public_key:

@@ -62,6 +62,9 @@ AUyLcfa1WTibE8n9Ih7BPE8EtL4KUyk15MBRGMeOgsjCRoIcmL6OssyqTYXlIbYr
 2BkwsDueSsMfqSCKitaXfyt4Gc/3vtB60D3JWzZ8cEENVNEfhclD
 -----END RSA PRIVATE KEY-----"""
 
+whogoesthere.app.config['PUBLIC_KEY'] = \
+    whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY']
+
 
 class Tests(unittest.TestCase):
     def setUp(self):
@@ -173,6 +176,15 @@ class Tests(unittest.TestCase):
             authentication_token = 'b' + authentication_token[1:]
         token_check_response = self.app.get("/check", data={'token': authentication_token})
         self.assertEqual(token_check_response.status_code, 400)
+
+    def test_decoratored_endpoint(self):
+        self.test_make_user()
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        authentication_token = authentication_response.data.decode()
+        test_response = self.app.get("/test", data={"access_token": authentication_token})
+        self.assertEqual(test_response.status_code, 200)
 
 
 if __name__ == "__main__":
