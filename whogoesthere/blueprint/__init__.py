@@ -83,27 +83,27 @@ class MakeUser(Resource):
 
 
 class RemoveUser(Resource):
-    def delete(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('user', type=str, required=True,
-                            location=['form', 'header', 'cookies'])
-        args = parser.parse_args()
+    @requires_authentication
+    def delete(self, access_token=None):
+        if not access_token:
+            raise ValueError("No token!")
 
-        log.debug("Attempting to delete user: {}".format(args['user']))
+
+        log.debug("Attempting to delete user: {}".format(access_token['user']))
 
         res = BLUEPRINT.config['authentication_db']['authentication'].delete_one(
             {
-                'user': args['user']
+                'user': access_token['user']
             }
         )
 
         if res.deleted_count == 1:
             # success
-            log.info("User {} deleted".format(args['user']))
+            log.info("User {} deleted".format(access_token['user']))
             return {"success": True}
         else:
             # fail
-            log.info("Deletetion attempt on user {} failed".format(args['user']))
+            log.info("Deletetion attempt on user {} failed".format(access_token['user']))
             return {"success": False}
 
 
@@ -130,12 +130,13 @@ class AuthUser(Resource):
             raise IncorrectPasswordError(args['user'])
         log.debug("Assembling token for {}".format(args['user']))
         token = {
-            'user': args['user'],
+            'user': user['user'],
             'exp': datetime.datetime.utcnow() +
             datetime.timedelta(seconds=BLUEPRINT.config.get('EXP_DELTA', 86400)),
             'nbf': datetime.datetime.utcnow(),
             'iat': datetime.datetime.utcnow()
         }
+
         authorization = BLUEPRINT.config['authorization_db']['authorization'].find_one(
             {'user': args['user']}
         )
@@ -178,6 +179,26 @@ class Test(Resource):
         return access_token
 
 
+class ChangePassword(Resource):
+    @requires_authentication
+    def post(self, access_token=None):
+        parser = reqparse.RequestParser()
+        parser.add_argument('new_pass', type=str, required=True,
+                            location=['form', 'header', 'cookies'])
+        args = parser.parse_args()
+
+        if not access_token:
+            raise ValueError("No token!")
+
+        BLUEPRINT.config
+        BLUEPRINT.config['authentication_db']['authentication'].update_one(
+            {'user': access_token['user']},
+            {'$set': {'password': bcrypt.hashpw(args['new_pass'].encode(), bcrypt.gensalt())}}
+        )
+
+        return {"success": True}
+
+
 @BLUEPRINT.record
 def handle_configs(setup_state):
     app = setup_state.app
@@ -217,3 +238,4 @@ API.add_resource(RemoveUser, "/del_user")
 API.add_resource(AuthUser, "/auth_user")
 API.add_resource(CheckToken, "/check")
 API.add_resource(Test, "/test")
+API.add_resource(ChangePassword, "/change_pass")

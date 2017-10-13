@@ -123,16 +123,6 @@ class Tests(unittest.TestCase):
         make_user_json = json.loads(make_user_response.data.decode())
         self.assertEqual(make_user_json['success'], True)
 
-    def test_del_user(self):
-        self.test_make_user()
-        rm_user_response = self.app.delete("/del_user",
-                                           data={'user': 'foo'})
-        self.assertEqual(rm_user_response.status_code, 200)
-        self.assertEqual(
-            json.loads(rm_user_response.data.decode())['success'],
-            True
-        )
-
     def test_user_bounce(self):
         self.test_make_user()
         make_user_response = self.app.post("/make_user",
@@ -195,6 +185,51 @@ class Tests(unittest.TestCase):
         authentication_token = authentication_response.data.decode()
         test_response = self.app.get("/test", data={"access_token": authentication_token})
         self.assertEqual(test_response.status_code, 200)
+
+    def test_change_pass(self):
+        self.test_make_user()
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        authentication_token = authentication_response.data.decode()
+
+        # Change the password
+        change_pass_response = self.app.post(
+            "/change_pass",
+            data={
+                "new_pass": "baz",
+                "access_token": authentication_token
+            }
+        )
+
+        # Test to be sure the new password is valid
+        self.assertEqual(change_pass_response.status_code, 200)
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'baz'})
+        self.assertEqual(authentication_response.status_code, 200)
+
+        # Test to be sure the old password is now invalid
+        self.assertEqual(change_pass_response.status_code, 200)
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 404)
+
+    def test_delete_account(self):
+        self.test_make_user()
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+
+        del_self_response = self.app.delete(
+            "/del_user",
+            data={'access_token': access_token}
+        )
+        self.assertEqual(del_self_response.status_code, 200)
+
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 404)
 
 
 if __name__ == "__main__":
