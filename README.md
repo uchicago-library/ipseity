@@ -8,7 +8,13 @@ An authentication API microservice
 
 [Authentication != Authorization](https://serverfault.com/questions/57077/what-is-the-difference-between-authentication-and-authorization)
 
-This package also provides some utilities for utilizing a remote whogoesthere server in your own APIs, as well as some minimal functional decorators for requiring authentication.
+This microservice utilizes JWTs to provide authentication assurances to other services. Services may either use this API, or a locally cached copy of the services public key, in order to validate JWTs minimally containg a users name.
+
+Don't know what a JSON Web Token (JWT) is? Read about them [here](https://jwt.io/)
+
+Credentials are held in a MongoDB collection. Passwords are salted/hashed via [bcrypt](https://pypi.python.org/pypi/bcrypt).
+
+Tokens creation and validation is handled via [PyJWT](https://pypi.python.org/pypi/PyJWT)
 
 ## Warnings
 
