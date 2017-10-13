@@ -82,6 +82,31 @@ class MakeUser(Resource):
         return {"success": True}
 
 
+class RemoveUser(Resource):
+    def delete(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('user', type=str, required=True,
+                            location=['form', 'header', 'cookies'])
+        args = parser.parse_args()
+
+        log.debug("Attempting to delete user: {}".format(args['user']))
+
+        res = BLUEPRINT.config['authentication_db']['authentication'].delete_one(
+            {
+                'user': args['user']
+            }
+        )
+
+        if res.deleted_count == 1:
+            # success
+            log.info("User {} deleted".format(args['user']))
+            return {"success": True}
+        else:
+            # fail
+            log.info("Deletetion attempt on user {} failed".format(args['user']))
+            return {"success": False}
+
+
 class AuthUser(Resource):
     def get(self):
         parser = reqparse.RequestParser()
@@ -188,6 +213,7 @@ API.add_resource(Root, "/")
 API.add_resource(Version, "/version")
 API.add_resource(PublicKey, "/pubkey")
 API.add_resource(MakeUser, "/make_user")
+API.add_resource(RemoveUser, "/del_user")
 API.add_resource(AuthUser, "/auth_user")
 API.add_resource(CheckToken, "/check")
 API.add_resource(Test, "/test")

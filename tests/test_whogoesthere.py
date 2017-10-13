@@ -123,6 +123,16 @@ class Tests(unittest.TestCase):
         make_user_json = json.loads(make_user_response.data.decode())
         self.assertEqual(make_user_json['success'], True)
 
+    def test_del_user(self):
+        self.test_make_user()
+        rm_user_response = self.app.delete("/del_user",
+                                           data={'user': 'foo'})
+        self.assertEqual(rm_user_response.status_code, 200)
+        self.assertEqual(
+            json.loads(rm_user_response.data.decode())['success'],
+            True
+        )
+
     def test_user_bounce(self):
         self.test_make_user()
         make_user_response = self.app.post("/make_user",
