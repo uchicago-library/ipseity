@@ -12,11 +12,11 @@ This package also provides some utilities for utilizing a remote whogoesthere se
 
 ## Warnings
 
-*DO NOT RUN THIS SERVER OVER HTTP* - user passwords will be transmitted in plaintext, use HTTPS
+**DO NOT RUN THIS SERVER OVER HTTP** - user passwords will be transmitted in plaintext, use HTTPS
 
-*DO NOT LEAVE YOUR MONGO INSTANCE ACCESSIBLE TO THE INTERNET WITHOUT AUTHENTICATION* - the mongo data is cannonical, while all passwords are stored hashed usernames will be exposed, and passwords could be changed/users deleted/claims altered.
+**DO NOT LEAVE YOUR MONGO INSTANCE ACCESSIBLE TO THE INTERNET WITHOUT AUTHENTICATION** - the mongo data is cannonical, while all passwords are stored hashed usernames will be exposed, and passwords could be changed/users deleted/claims altered.
 
-*DO NOT EXPOSE YOUR PRIVATE KEY* - With knowledge of the private key anyone can create valid tokens for any user.
+**DO NOT EXPOSE YOUR PRIVATE KEY** - With knowledge of the private key anyone can create valid tokens for any user.
 
 Things this API can do:
 * Store username/passwords, validate logins
