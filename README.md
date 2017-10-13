@@ -24,6 +24,8 @@ Tokens creation and validation is handled via [PyJWT](https://pypi.python.org/py
 
 **DO NOT EXPOSE YOUR PRIVATE KEY** - With knowledge of the private key anyone can create valid tokens for any user.
 
+**DO NOT RUN THE CURRENT DOCKERFILE IN PRODUCTION** - the current dockerfile runs the API over HTTP for development/testing purposes
+
 Things this API can do:
 * Store username/passwords, validate logins
 
@@ -117,8 +119,6 @@ Inject environmental variables appropriately at either buildtime or runtime
 * WHOGOESTHERE_CLAIMS_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
 * WHOGOESTHERE_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
 * WHOGOESTHERE_VERBOSITY (WARN): The verbosity of the logs
-## Strictly for the utils
-* WHOGOESTHERE_URL: A remote URL to retrieve a public key from, which will be employed by the decorators in order to validate tokens on incoming requests if a public key isn't provided
 
 # Author
 Brian Balsamo <brian@brianbalsamo.com>

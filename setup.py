@@ -21,7 +21,6 @@ setup(
     url='https://github.com/bnbalsamo/whogoesthere',
     install_requires=[
         'flask>0',
-        'requests',
         'flask_env',
         'flask_restful',
         'PyJWT',
