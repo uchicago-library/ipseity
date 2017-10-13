@@ -75,7 +75,7 @@ class Tests(unittest.TestCase):
         self.client = MongoClient('localhost', 27017)
         whogoesthere.blueprint.BLUEPRINT.config['authentication_db'] = \
             self.client['whogoesthere_test']
-        whogoesthere.blueprint.BLUEPRINT.config['authorization_db'] = \
+        whogoesthere.blueprint.BLUEPRINT.config['claims_db'] = \
             self.client['whogoesthere_test']
         self.app = whogoesthere.app.test_client()
 

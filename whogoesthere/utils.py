@@ -118,11 +118,3 @@ def requires_authentication(f):
             abort(401)
         return f(*args, **kwargs, access_token=decoded_token)
     return decorated
-
-
-def requires_authorization(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        kwargs['access_token']
-        return f(*args, **kwargs)
-    return decorated

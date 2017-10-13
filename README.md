@@ -4,11 +4,33 @@ v0.0.1
 
 [![Build Status](https://travis-ci.org/bnbalsamo/whogoesthere.svg?branch=master)](https://travis-ci.org/bnbalsamo/whogoesthere) [![Coverage Status](https://coveralls.io/repos/github/bnbalsamo/whogoesthere/badge.svg?branch=master)](https://coveralls.io/github/bnbalsamo/whogoesthere?branch=master)
 
-An authentication API
+An authentication API microservice
 
 [Authentication != Authorization](https://serverfault.com/questions/57077/what-is-the-difference-between-authentication-and-authorization)
 
-This package also provides some utilities for utilizing a remote whogoesthere server in your own APIs, as well as some minimal functional decorators for requiring authentication, or implementing your own authorization decorator.
+This package also provides some utilities for utilizing a remote whogoesthere server in your own APIs, as well as some minimal functional decorators for requiring authentication.
+
+## Warnings
+
+*DO NOT RUN THIS SERVER OVER HTTP* - user passwords will be transmitted in plaintext, use HTTPS
+
+*DO NOT LEAVE YOUR MONGO INSTANCE ACCESSIBLE TO THE INTERNET WITHOUT AUTHENTICATION* - the mongo data is cannonical, while all passwords are stored hashed usernames will be exposed, and passwords could be changed/users deleted/claims altered.
+
+*DO NOT EXPOSE YOUR PRIVATE KEY* - With knowledge of the private key anyone can create valid tokens for any user.
+
+Things this API can do:
+* Store username/passwords, validate logins
+
+Things this API can't do:
+* Limit who can create an account
+* Allow one user to interact with anothers account
+    * creation
+    * deletion
+    * password change
+    * etc
+
+Things you can do with either a sidecar authentication/claims API that manipulates the underlying mongo or the ability to craft valid tokens for users without their passwords (aka, having the secret key):
+* See above
 
 
 # Debug Quickstart
@@ -74,7 +96,7 @@ Inject environmental variables appropriately at either buildtime or runtime
 #### Parameters
 * access_token (str): An encoded jwt token
 #### Returns
-* JSON: The token, if validation occured or 401
+* JSON: The token, if validation occured, or 401
 
 # Environmental Variables
 ## Required
@@ -84,9 +106,9 @@ Inject environmental variables appropriately at either buildtime or runtime
 ## Optional (defaults)
 * WHOGOESTHERE_AUTHENTICATION_MONGO_PORT (27017): The port the Mongo server is running on
 * WHOGOESTHERE_AUTHENTICATION_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
-* WHOGOESTHERE_AUTHORIZATION_MONGO_HOST ($WHOGOESTHERE_AUTHENTICATION_MONGO_HOST): The IP address or hostname of the mongo server for authorization data
-* WHOGOESTHERE_AUTHORIZATION_MONGO_PORT (27017): The port the Mongo server is running on
-* WHOGOESTHERE_AUTHORIZATION_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
+* WHOGOESTHERE_CLAIMS_MONGO_HOST ($WHOGOESTHERE_AUTHENTICATION_MONGO_HOST): The IP address or hostname of the mongo server for claims data
+* WHOGOESTHERE_CLAIMS_MONGO_PORT (27017): The port the Mongo server is running on
+* WHOGOESTHERE_CLAIMS_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
 * WHOGOESTHERE_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
 * WHOGOESTHERE_VERBOSITY (WARN): The verbosity of the logs
 ## Strictly for the utils
