@@ -1,0 +1,11 @@
+<html>
+    <body>
+        <b>Register</b>
+        <form method="POST" action="/register">
+            {{ form.csrf_token }}
+            <div>{{ form.user.label }}: {{ form.user(class="css_class") }}</div>
+            <div>{{ form.password.label }}: {{ form.password() }}</div>
+            <div><input type=submit value=Submit /></div>
+        </form>
+    </body>
+</html>
