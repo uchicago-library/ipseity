@@ -1,52 +1,57 @@
 version: "2.0"
 services:
     mongo:
-        image: "mongo"
+        image: mongo
     whogoesthere:
         build:
             context: .
         environment:
-            WHOGOESTHERE_AUTHENTICATION_MONGO_HOST: "mongo"
-            WHOGOESTHERE_PUBLIC_KEY: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCmuP2ryLX32wqVXoKzE
-MjX5JaOSxUnUC3SzuVpzUO0DRvWanKuvV7IhgGPboEWKbcUrSJIfVeGtD9p6Coov
-bX7UccaABjIJNd7NB66Y4eizDDxF4Bm4owkmmfESMEsUuVjI8q0Zq7nXhO62B3ix
-u+Zo9sGxyHj5bJ292Qu+beX/DVlWUQeOU9i0XJ4YhlOtNQjS8ZURga0Kmh3Ppffv
-+lm3IDMdewT35XbcNmsxrPVLykk9s47TwfN0N2/wAEnodZfBZP8if9+QSI6ilxP/
-LjXbcXfY1MG8CtTrc/zoic/uODL4j3b6L/qV4bsWvof8imGcRWIDFc83CTW2UCyC
-eFR dontuseme"
-            WHOGOESTHERE_PRIVATE_KEY: "-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEAprj9q8i199sKlV6CsxDI1+SWjksVJ1At0s7lac1DtA0b1mpy
-rr1eyIYBj26BFim3FK0iSH1XhrQ/aegqKL21+1HHGgAYyCTXezQeumOHosww8ReA
-ZuKMJJpnxEjBLFLlYyPKtGau514Tutgd4sbvmaPbBsch4+WydvdkLvm3l/w1ZVlE
-HjlPYtFyeGIZTrTUI0vGVEYGtCpodz6X37/pZtyAzHXsE9+V23DZrMaz1S8pJPbO
-O08HzdDdv8ABJ6HWXwWT/In/fkEiOopcT/y4123F32NTBvArU63P86InP7jgy+I9
-2+i/6leG7Fr6H/IphnEViAxXPNwk1tlAsgnhUQIDAQABAoIBAQCKU7wslifcUEGU
-ssiQF2H8Ni1wO/1+E7khSgXv5Z3BuoqZONKUBoyopP6QaafyooPDRO7H5C8FlXFz
-xmuMR/LAZRZjjScCkAa0swa3sLKtsOr+bXhcZKTQDcgAhDi6NMEbo2ugh/2f+181
-S/Bn4pSTDe9AzWFh+4c5y4K0sv3Pu9thoJqgg84tMi0b+r4JVbna8KxiO3A7jwWQ
-BeeHYKr99DLd3EK1ZhVAaSs48KBXfekaz4mTnqySo6dNV74hbtUyyws2VStC1o8g
-tQjHZWVVh2nGeBTfMkhOAuUenDEAcyue0qB7gsBonn6irU16jBCHpTuAeGEuxoJn
-8+NOypX9AoGBANzKrMaJitUTQZp50nEQ8hwWFk5FtV3zDmUwmZ/9dIQ9Obco6RM4
-3P86HFFFgJ9leXyaGTq1UmUjtSHgDyQrVAV5IJBAoDH64edFgcZs6WMy8Y772hiH
-CiG9OrlSrkNLiT/nCovjgNyQmzsysh+6pBxMqV4Nvz9FyJA2gDsMHqzPAoGBAMFP
-ET3VUixcEv/AytPtReJcE1fxmh2Pm5rf9HwOatpDUAtqKchMhacStReEoQ6JYHI2
-CG6JRs9MzGru3pETsGKpMBpqZq5QG1+W1sIJe6IWYPVF+Pjt6SgSJwxSB78AiNFA
-EuvFNtEGau4eelxEk6LfT7tBRyFRvaOYhFIbuVffAoGAZ+z+ZnVXY/QsbQnqhE31
-qEK9PRqSxCYkIH0/0o76yUQIZq5bBzE81OYFbjvIzz50cLIYLgorPnAQUmGkvuGm
-Ku1Y5o2E2gG9U57j9wJM2OShzyu8/M6Tdk4b1h+U5xgnAm0+CZqMjUWDy9mQ/l5b
-4PY0wpC19JJkVX1R3nlV9wECgYABcT6WsIXJcPJvWBfrVuTjmH5IdLQKrmyhzjP7
-zPu9Hy10uFkRdoi0w234e/PbsOi4UXDkqj+OAmuwDJI6kOQLCGokeFDF0jEyGGUH
-05xJjFMy4U/HQ7cuplwGOoJ2SWG79fduLO2Ix7x6hF2zXIuhdnsY0ZbfR8Xbd6Ld
-HfnXDwKBgCpfy32fyk4wpqhgisdbHVqt89QLIw+6I5pVy/vW7oB6s8ZaDaRzpx62
-AUyLcfa1WTibE8n9Ih7BPE8EtL4KUyk15MBRGMeOgsjCRoIcmL6OssyqTYXlIbYr
-2BkwsDueSsMfqSCKitaXfyt4Gc/3vtB60D3JWzZ8cEENVNEfhclD
------END RSA PRIVATE KEY-----"
+            WHOGOESTHERE_AUTHENTICATION_MONGO_HOST: mongo
+            WHOGOESTHERE_PUBLIC_KEY: |-
+                ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCmuP2ryLX32wqVXoKzE
+                MjX5JaOSxUnUC3SzuVpzUO0DRvWanKuvV7IhgGPboEWKbcUrSJIfVeGtD9p6Coov
+                bX7UccaABjIJNd7NB66Y4eizDDxF4Bm4owkmmfESMEsUuVjI8q0Zq7nXhO62B3ix
+                u+Zo9sGxyHj5bJ292Qu+beX/DVlWUQeOU9i0XJ4YhlOtNQjS8ZURga0Kmh3Ppffv
+                +lm3IDMdewT35XbcNmsxrPVLykk9s47TwfN0N2/wAEnodZfBZP8if9+QSI6ilxP/
+                LjXbcXfY1MG8CtTrc/zoic/uODL4j3b6L/qV4bsWvof8imGcRWIDFc83CTW2UCyC
+                eFR dontuseme
+            WHOGOESTHERE_PRIVATE_KEY: |- 
+                -----BEGIN RSA PRIVATE KEY-----
+                MIIEowIBAAKCAQEAprj9q8i199sKlV6CsxDI1+SWjksVJ1At0s7lac1DtA0b1mpy
+                rr1eyIYBj26BFim3FK0iSH1XhrQ/aegqKL21+1HHGgAYyCTXezQeumOHosww8ReA
+                ZuKMJJpnxEjBLFLlYyPKtGau514Tutgd4sbvmaPbBsch4+WydvdkLvm3l/w1ZVlE
+                HjlPYtFyeGIZTrTUI0vGVEYGtCpodz6X37/pZtyAzHXsE9+V23DZrMaz1S8pJPbO
+                O08HzdDdv8ABJ6HWXwWT/In/fkEiOopcT/y4123F32NTBvArU63P86InP7jgy+I9
+                2+i/6leG7Fr6H/IphnEViAxXPNwk1tlAsgnhUQIDAQABAoIBAQCKU7wslifcUEGU
+                ssiQF2H8Ni1wO/1+E7khSgXv5Z3BuoqZONKUBoyopP6QaafyooPDRO7H5C8FlXFz
+                xmuMR/LAZRZjjScCkAa0swa3sLKtsOr+bXhcZKTQDcgAhDi6NMEbo2ugh/2f+181
+                S/Bn4pSTDe9AzWFh+4c5y4K0sv3Pu9thoJqgg84tMi0b+r4JVbna8KxiO3A7jwWQ
+                BeeHYKr99DLd3EK1ZhVAaSs48KBXfekaz4mTnqySo6dNV74hbtUyyws2VStC1o8g
+                tQjHZWVVh2nGeBTfMkhOAuUenDEAcyue0qB7gsBonn6irU16jBCHpTuAeGEuxoJn
+                8+NOypX9AoGBANzKrMaJitUTQZp50nEQ8hwWFk5FtV3zDmUwmZ/9dIQ9Obco6RM4
+                3P86HFFFgJ9leXyaGTq1UmUjtSHgDyQrVAV5IJBAoDH64edFgcZs6WMy8Y772hiH
+                CiG9OrlSrkNLiT/nCovjgNyQmzsysh+6pBxMqV4Nvz9FyJA2gDsMHqzPAoGBAMFP
+                ET3VUixcEv/AytPtReJcE1fxmh2Pm5rf9HwOatpDUAtqKchMhacStReEoQ6JYHI2
+                CG6JRs9MzGru3pETsGKpMBpqZq5QG1+W1sIJe6IWYPVF+Pjt6SgSJwxSB78AiNFA
+                EuvFNtEGau4eelxEk6LfT7tBRyFRvaOYhFIbuVffAoGAZ+z+ZnVXY/QsbQnqhE31
+                qEK9PRqSxCYkIH0/0o76yUQIZq5bBzE81OYFbjvIzz50cLIYLgorPnAQUmGkvuGm
+                Ku1Y5o2E2gG9U57j9wJM2OShzyu8/M6Tdk4b1h+U5xgnAm0+CZqMjUWDy9mQ/l5b
+                4PY0wpC19JJkVX1R3nlV9wECgYABcT6WsIXJcPJvWBfrVuTjmH5IdLQKrmyhzjP7
+                zPu9Hy10uFkRdoi0w234e/PbsOi4UXDkqj+OAmuwDJI6kOQLCGokeFDF0jEyGGUH
+                05xJjFMy4U/HQ7cuplwGOoJ2SWG79fduLO2Ix7x6hF2zXIuhdnsY0ZbfR8Xbd6Ld
+                HfnXDwKBgCpfy32fyk4wpqhgisdbHVqt89QLIw+6I5pVy/vW7oB6s8ZaDaRzpx62
+                AUyLcfa1WTibE8n9Ih7BPE8EtL4KUyk15MBRGMeOgsjCRoIcmL6OssyqTYXlIbYr
+                2BkwsDueSsMfqSCKitaXfyt4Gc/3vtB60D3JWzZ8cEENVNEfhclD
+                -----END RSA PRIVATE KEY-----
         depends_on:
             - mongo
     test_site:
         build:
             context: ./test_site
         environment:
-            WHOGOESTHERE_URL: "http://whogoesthere"
+            SESSION_MONGODB_HOST: mongo
+            WHOGOESTHERE_URL: http://whogoesthere
         ports: 
-            - "5000:80"
+            - 5000:80
+        depends_on:
+            - whogoesthere

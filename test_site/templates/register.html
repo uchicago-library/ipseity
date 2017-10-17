@@ -5,6 +5,7 @@
             {{ form.csrf_token }}
             <div>{{ form.user.label }}: {{ form.user(class="css_class") }}</div>
             <div>{{ form.password.label }}: {{ form.password() }}</div>
+            <div>{{ form.confirm.label }}: {{ form.confirm() }}</div>
             <div><input type=submit value=Submit /></div>
         </form>
     </body>

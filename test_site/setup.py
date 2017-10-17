@@ -5,8 +5,11 @@ setup(
     py_modules=['login_demo'],
     install_requires=[
         'flask>0',
-        'PyJWT',
         'flask_wtf',
+        'flask_session',
+        'pymongo',
+        'cryptography',
+        'PyJWT',
         'requests'
     ]
 )
