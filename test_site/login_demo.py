@@ -267,7 +267,7 @@ def optional_authentication(f):
 def root(access_token=None):
     # Go get the pubkey to confirm the token from the server
     if access_token is not None:
-        return render_template('logged_in.html', user=access_token['user'])
+        return render_template('logged_in.html', user=access_token['user'], token=get_token())
     else:
         return "<a href='{}'>Login</a> <a href='{}'>Register</a>".format(
             url_for("login"),
