@@ -5,6 +5,7 @@ import logging
 import datetime
 import json
 from functools import wraps
+from uuid import uuid4
 
 from flask import Blueprint, jsonify, Response, request, abort
 from flask_restful import Resource, Api, reqparse
@@ -172,7 +173,8 @@ class MakeUser(Resource):
         BLUEPRINT.config['authentication_db']['authentication'].insert_one(
             {
                 'user': args['user'],
-                'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt())
+                'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt()),
+                'refresh_tokens': []
             }
         )
 
@@ -210,22 +212,33 @@ class AuthUser(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('user', type=str, required=True,
                             location=['form', 'header', 'cookies'])
-        parser.add_argument('pass', type=str, required=True,
+        parser.add_argument('pass', type=str, default=None,
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
+        log.debug("Attempting to auth {}".format(args['user']))
 
-        user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
-            {'user': args['user']}
-        )
+        if not args['pass']:
+            # Token based auth
+            user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
+                {"refresh_tokens": args['user']}
+            )
+            if not user:
+                log.debug("Refresh token {} does not exist".format(args['user']))
+                raise InvalidTokenError(args['user'])
+        else:
+            # username/password auth
+            user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
+                {'user': args['user']}
+            )
+            if not user:
+                log.debug("Username {} does not exist".format(args['user']))
+                raise UserDoesNotExistError(args['user'])
+            if not bcrypt.checkpw(args['pass'].encode(), user['password']):
+                log.debug("Incorrect password provided for username {}".format(args['user']))
+                raise IncorrectPasswordError(args['user'])
 
-        log.debug("Attempting to auth {} via password".format(args['user']))
-
-        if not user:
-            log.debug("Username {} does not exist".format(args['user']))
-            raise UserDoesNotExistError(args['user'])
-        if not bcrypt.checkpw(args['pass'].encode(), user['password']):
-            log.debug("Incorrect password provided for username {}".format(args['user']))
-            raise IncorrectPasswordError(args['user'])
+        # If we got to here we found a user, either by refresh token or
+        # username/password auth
         log.debug("Assembling token for {}".format(args['user']))
         token = {
             'user': user['user'],
@@ -281,13 +294,46 @@ class ChangePassword(Resource):
         if not access_token:
             raise ValueError("No token!")
 
-        BLUEPRINT.config
         BLUEPRINT.config['authentication_db']['authentication'].update_one(
             {'user': access_token['user']},
             {'$set': {'password': bcrypt.hashpw(args['new_pass'].encode(), bcrypt.gensalt())}}
         )
 
         return {"success": True}
+
+
+class RefreshToken(Resource):
+    @requires_authentication
+    def get(self, access_token=None):
+        if not access_token:
+            raise ValueError("No token!")
+
+        refresh_token = uuid4().hex
+        BLUEPRINT.config['authentication_db']['authentication'].update_one(
+            {'user': access_token['user']},
+            {'$push': {'refresh_tokens': refresh_token}}
+        )
+        return Response(refresh_token)
+
+    @requires_authentication
+    def delete(self, access_token=None):
+        if not access_token:
+            raise ValueError("No token!")
+
+        parser = reqparse.RequestParser()
+        parser.add_argument('refresh_token', type=str, required=True,
+                            location=['form', 'header', 'cookies'])
+        args = parser.parse_args()
+
+        res = BLUEPRINT.config['authentication_db']['authentication'].update_one(
+            {'user': access_token['user']},
+            {'$pull': {'refresh_tokens': args['refresh_token']}}
+        )
+
+        if res.modified_count > 0:
+            return {"success": True}
+        else:
+            raise InvalidTokenError()
 
 
 @BLUEPRINT.record
@@ -322,3 +368,4 @@ API.add_resource(AuthUser, "/auth_user")
 API.add_resource(CheckToken, "/check")
 API.add_resource(Test, "/test")
 API.add_resource(ChangePassword, "/change_pass")
+API.add_resource(RefreshToken, "/refresh_token")

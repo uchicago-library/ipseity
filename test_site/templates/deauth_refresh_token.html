@@ -1,0 +1,10 @@
+<html>
+    <body>
+        <b>Deauthenticate Refresh Token</b>
+        <form method="POST" action="/deauth_refresh_token">
+            {{ form.csrf_token }}
+            <div>{{ form.refresh_token.label }}: {{ form.refresh_token(class="css_class") }}</div>
+            <div><input type=submit value=Submit /></div>
+        </form>
+    </body>
+</html>

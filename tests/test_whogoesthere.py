@@ -231,6 +231,39 @@ class Tests(unittest.TestCase):
                                                data={'user': 'foo', 'pass': 'bar'})
         self.assertEqual(authentication_response.status_code, 404)
 
+    def test_refresh_token(self):
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        # Use our first access token to generate a refresh token
+        refresh_token_response = self.app.get("/refresh_token",
+                                              data={'access_token': access_token})
+        self.assertEqual(refresh_token_response.status_code, 200)
+        refresh_token = refresh_token_response.data.decode()
+        # Use the refresh token to get a new access token
+        second_authentication_response = self.app.get("/auth_user",
+                                                      data={'user': refresh_token})
+        self.assertEqual(second_authentication_response.status_code, 200)
+        second_access_token = second_authentication_response.data.decode()
+        # Use our second access token to remove the refresh token
+        deactivate_refresh_response = self.app.delete(
+            "/refresh_token",
+            data={
+                "access_token": second_access_token,
+                "refresh_token": refresh_token
+            }
+        )
+        # Be sure we can't use that refresh token anymore
+        # We get a 400 when we try
+        third_auth_attempt_response = self.app.get("/auth_user",
+                                                   data={"user": refresh_token})
+        self.assertEqual(third_auth_attempt_response.status_code, 400)
+
+
+
 
 if __name__ == "__main__":
     unittest.main()

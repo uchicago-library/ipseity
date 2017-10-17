@@ -89,12 +89,10 @@ class LoginForm(FlaskForm):
             Length(min=3)
         ]
     )
+    # Password field can be completely blank, for token logins
     password = PasswordField(
         'pass',
-        validators=[
-            DataRequired(),
-            Length(min=5)
-        ]
+        validators=[]
     )
 
 
@@ -110,12 +108,21 @@ class RegistrationForm(FlaskForm):
         'pass',
         validators=[
             DataRequired(),
-            Length(min=5),
+            Length(min=3),
             EqualTo('confirm', message='Passwords must match')
         ]
     )
     confirm = PasswordField(
         'repeat_password'
+    )
+
+
+class DeauthRefreshTokenForm(FlaskForm):
+    refresh_token = StringField(
+        'refresh_token',
+        validators=[
+            DataRequired()
+        ]
     )
 
 
@@ -260,10 +267,7 @@ def optional_authentication(f):
 def root(access_token=None):
     # Go get the pubkey to confirm the token from the server
     if access_token is not None:
-        return "<p>Hello {}!</p><a href='{}'>Logout</a>".format(
-            access_token['user'],
-            url_for("logout")
-        )
+        return render_template('logged_in.html', user=access_token['user'])
     else:
         return "<a href='{}'>Login</a> <a href='{}'>Register</a>".format(
             url_for("login"),
@@ -299,6 +303,8 @@ def login():
 @app.route("/logout")
 @requires_authentication
 def logout(access_token=None):
+    if not access_token:
+        raise AssertionError("No token!")
     try:
         del session['access_token']
     except KeyError:
@@ -326,3 +332,39 @@ def register():
     else:
         # Get, serve the form
         return render_template('register.html', form=form)
+
+
+@app.route("/refresh_token")
+@requires_authentication
+def refresh_token(access_token=None):
+    if not access_token:
+        raise AssertionError("No token!")
+
+    # We use get_token() here to get the base64 original token
+    refresh_token_response = requests.get(
+        environ['WHOGOESTHERE_URL'] + "/refresh_token",
+        data={"access_token": get_token()}
+    )
+    if refresh_token_response.status_code != 200:
+        raise ValueError()
+    return make_response(refresh_token_response.text)
+
+
+@app.route("/deauth_refresh_token", methods=['GET', 'POST'])
+@requires_authentication
+def deauth_refresh_token(access_token=None):
+    if not access_token:
+        raise AssertionError("No token!")
+
+    form = DeauthRefreshTokenForm()
+    if form.validate_on_submit():
+        del_refresh_token_response = requests.delete(
+            environ['WHOGOESTHERE_URL'] + '/refresh_token',
+            data={"access_token": get_token(),
+                  "refresh_token": request.form['refresh_token']}
+        )
+        if del_refresh_token_response.status_code != 200:
+            raise ValueError()
+        return make_response("Deleted!")
+    else:
+        return render_template('deauth_refresh_token.html', form=form)
