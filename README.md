@@ -8,13 +8,19 @@ An authentication API microservice
 
 [Authentication != Authorization](https://serverfault.com/questions/57077/what-is-the-difference-between-authentication-and-authorization)
 
-This microservice utilizes JWTs to provide authentication assurances to other services. Services may either use this API, or a locally cached copy of the services public key, in order to validate JWTs minimally containg a users name.
+This microservice utilizes JWTs to provide authentication assurances to other services. Services may either use this API, or a locally cached copy of the services public key, in order to validate JWTs containg a users name.
 
 Don't know what a JSON Web Token (JWT) is? Read about them [here](https://jwt.io/)
 
 Credentials are held in a MongoDB collection. Passwords are salted/hashed via [bcrypt](https://pypi.python.org/pypi/bcrypt).
 
-Tokens creation and validation is handled via [PyJWT](https://pypi.python.org/pypi/PyJWT)
+Tokens creation and validation is handled via [PyJWT](https://pypi.python.org/pypi/PyJWT) in the server, and should probably be handled by it in your client too.
+
+To see a working client/server demo:
+```
+$ docker-compose up -d
+$ firefox http://localhost:5000
+```
 
 ## Warnings
 
@@ -37,7 +43,7 @@ Things this API can't do:
     * password change
     * etc
 
-Things you can do with either a sidecar authentication/claims API that manipulates the underlying mongo or the ability to craft valid tokens for users without their passwords (aka, having the secret key):
+Things you can do with either a sidecar authentication/claims API that manipulates the underlying mongo, relying on this API for authentication, or the ability to craft valid tokens for users without their passwords (aka, having the secret key):
 * See above
 
 
@@ -114,9 +120,6 @@ Inject environmental variables appropriately at either buildtime or runtime
 ## Optional (defaults)
 * WHOGOESTHERE_AUTHENTICATION_MONGO_PORT (27017): The port the Mongo server is running on
 * WHOGOESTHERE_AUTHENTICATION_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
-* WHOGOESTHERE_CLAIMS_MONGO_HOST ($WHOGOESTHERE_AUTHENTICATION_MONGO_HOST): The IP address or hostname of the mongo server for claims data
-* WHOGOESTHERE_CLAIMS_MONGO_PORT (27017): The port the Mongo server is running on
-* WHOGOESTHERE_CLAIMS_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
 * WHOGOESTHERE_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
 * WHOGOESTHERE_VERBOSITY (WARN): The verbosity of the logs
 

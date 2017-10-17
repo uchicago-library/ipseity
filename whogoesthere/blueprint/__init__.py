@@ -235,12 +235,6 @@ class AuthUser(Resource):
             'iat': datetime.datetime.utcnow()
         }
 
-        claims = BLUEPRINT.config['claims_db']['claims'].find_one(
-            {'user': args['user']}
-        )
-        if claims:
-            log.debug("Username {} has associated claims information".format(args['user']))
-            token.update(claims)
         encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
         log.debug("User {} successfully authenticated".format(args['user']))
         return Response(encoded_token.decode())
@@ -310,14 +304,6 @@ def handle_configs(setup_state):
     )
     BLUEPRINT.config['authentication_db'] = \
         authentication_client[BLUEPRINT.config.get('AUTHENTICATION_MONGO_DB', 'whogoesthere')]
-
-    claims_client = MongoClient(
-        BLUEPRINT.config.get('CLAIMS_MONGO_HOST',
-                             BLUEPRINT.config['AUTHENTICATION_MONGO_HOST']),
-        int(BLUEPRINT.config.get("CLAIMS_MONGO_PORT", 27017))
-    )
-    BLUEPRINT.config['claims_db'] = \
-        claims_client[BLUEPRINT.config.get('CLAIMS_MONGO_DB', 'whogoesthere')]
 
     if BLUEPRINT.config.get("VERBOSITY"):
         log.debug("Setting verbosity to {}".format(str(BLUEPRINT.config['VERBOSITY'])))
