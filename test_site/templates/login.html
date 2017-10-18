@@ -6,9 +6,11 @@
         {% endif %}
         <form method="POST" action="/login">
             {{ form.csrf_token }}
+            {{ form.next() or '' }}
             <div>{{ form.user.label }}: {{ form.user(class="css_class") }}</div>
             <div>{{ form.password.label }}: {{ form.password() }}</div>
             <div><input type=submit value=Submit /></div>
         </form>
+        <p>Or, if you don't have a login: <a href="{{ register_url }}">Register</a></p>
     </body>
 </html>

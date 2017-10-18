@@ -1,3 +1,6 @@
+# Proj specific
+test_site/
+
 # The usual suspects
 .git
 .gitignore

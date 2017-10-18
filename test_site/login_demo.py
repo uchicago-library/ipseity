@@ -25,17 +25,19 @@ Demo of using a whogoesthere JWT server for authentication.
 
 from os import environ
 from uuid import uuid4
+from urllib.parse import urlparse, urljoin
 import datetime
 from functools import wraps
 from flask import Flask, request, redirect, make_response, session, \
-    render_template, url_for
+    render_template, url_for, g
 from flask_session import Session
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField
+from wtforms import StringField, PasswordField, HiddenField
 from wtforms.validators import DataRequired, Length, EqualTo
 import requests
 import jwt
 from pymongo import MongoClient
+
 
 # =====
 # App instantiation and configuration
@@ -69,19 +71,303 @@ app.config['SESSION_MONGODB'] = \
 # Instantiate our new session backend
 Session(app)
 
+
+# We want to set some defaults per-request on g,
+# so that we can use them later while processing requests.
+@app.before_request
+def set_g_defaults():
+    """
+    Set the defaults for the authentication variables
+    """
+    g.authenticated = False
+    g.raw_token = None
+    g.json_token = None
+
+
 # =====
-# pubkey cache in the global namespace
+# pubkey cache
 # =====
 # We store the key itself and the last time
 # it was retrieved at, so we can keep it fresh
 # if we're pulling from the server
 pubkey_tuple = None
 # If we explicitly set the pubkey never check it from the server
+# We stop checks by setting the time we retrieved it in the distant
+# future, so it never ends up too long ago.
 if environ.get("WHOGOESTHERE_PUBKEY"):
-    pubkey_tuple = (environ['WHOGOESTHERE_PUBKEY'], datetime.datetime.max)
+    pubkey_tuple = (environ['WHOGOESTHERE_PUBKEY'],
+                    datetime.datetime.max)
 
 
-class LoginForm(FlaskForm):
+def pubkey():
+    """
+    Returns the public key used for verifying JWTs
+
+    This function includes the machinery for managing the pubkey cache,
+    if one wasn't specified via an env var.
+
+    Note this will **never** refresh the key if one was supplied via
+    an env var.
+    """
+    global pubkey_tuple
+    cache_timeout = datetime.timedelta(seconds=environ.get("PUBKEY_CACHE_TIMEOUT", 300))
+    if not pubkey_tuple or \
+            (datetime.datetime.now() - pubkey_tuple[1]) > cache_timeout:
+        # Refresh the pubkey tuple
+        pubkey_resp = requests.get(environ['WHOGOESTHERE_URL'] + "/pubkey")
+        if pubkey_resp.status_code != 200:
+            if not pubkey_tuple:
+                raise ValueError("Pubkey couldn't be retrieved!")
+        pubkey = pubkey_resp.text
+        pubkey_tuple = (pubkey, datetime.datetime.now())
+    return pubkey_tuple[0]
+
+
+# =====
+# Token functions
+# =====
+
+
+def check_token(token, pubkey):
+    """
+    Check the token
+    Assumes it's in the format the whogoesthere server returns
+    """
+    try:
+        token = jwt.decode(
+            token,
+            pubkey,
+            algorithm="RS256"
+        )
+        return True
+    except jwt.InvalidTokenError:
+        return False
+
+
+def _get_token_from_header():
+    """
+    https://tools.ietf.org/html/rfc6750#section-2.1
+    """
+    try:
+        auth_header = request.headers['Authorization']
+        if not auth_header.startswith("Bearer: "):
+            raise ValueError("Malformed auth header")
+        return auth_header[8:]
+    except KeyError:
+        # Auth isn't in the header
+        return None
+
+
+def _get_token_from_form():
+    """
+    https://tools.ietf.org/html/rfc6750#section-2.2
+    """
+    try:
+        return request.form['access_token']
+    except KeyError:
+        return None
+
+
+def _get_token_from_query():
+    """
+    https://tools.ietf.org/html/rfc6750#section-2.3
+    """
+    try:
+        return request.args['access_token']
+    except KeyError:
+        return None
+
+
+def _get_token():
+    """
+    Get the token from the response
+    Expects the response to supply the token in one of the
+    three ways specified in RFC 6750
+    """
+    # https://tools.ietf.org/html/rfc6750#section-2
+    tokens = []
+
+    for x in [_get_token_from_header,
+              _get_token_from_form,
+              _get_token_from_query]:
+        token = x()
+        if token:
+            tokens.append(token)
+
+    # Be a bit forgiving, don't break if they passed the
+    # same token twice, even if they aren't supposed to.
+    tokens = set(tokens)
+
+    if len(tokens) > 1:
+        raise ValueError("Too many tokens!")
+    elif len(tokens) == 1:
+        return tokens.pop()
+    else:
+        return None
+
+
+def get_token():
+    """
+    A wrapper for _get_token() which also checks the session.
+
+    We store the token in the session to prevent the user from having to
+    pass their token with every request, or continuously prompt them for
+    login credentials
+
+    Note that this function **just** returns the raw token, it doesn't
+    perform any validatin what-so-ever.
+    """
+    token = _get_token()
+    if not token:
+        token = session.get('access_token', None)
+    return token
+
+
+def get_json_token(verify=True):
+    """
+    A wrapper for get_token() which decodes the token and returns the JSON
+
+    Verifies the token by default during the operation, but by passing
+    the kwarg verify=False you can just get at the json sans verification.
+    """
+    token = get_token()
+    json_token = jwt.decode(
+        token,
+        pubkey(),
+        algorithm="RS256",
+        verify=verify
+    )
+    return json_token
+
+
+# =====
+# Decorators
+# =====
+
+
+# Wrapper for when a user _must_ be authenticated
+def requires_authentication(f):
+    """
+    A decorator for applying to routes where authentication is required.
+
+    If the event a user is not authenticated they will be redirected
+    to /login
+    """
+
+    def callback():
+        try:
+            del session['access_token']
+        except KeyError:
+            pass
+        return redirect(url_for("login"))
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            token = get_token()
+        except ValueError:
+            # Something is wrong with the token formatting
+            return callback()
+        if not token:
+            # Token isn't in the request or the session
+            return callback()
+        if not check_token(token, pubkey()):
+            # The token isn't valid
+            return callback()
+        g.authenticated = True
+        g.raw_token = get_token()
+        g.json_token = get_json_token()
+        return f(*args, **kwargs)
+    return decorated
+
+
+# Wrapper for when a user _may_ be authenticated
+def optional_authentication(f):
+
+    def callback():
+        try:
+            del session['access_token']
+        except KeyError:
+            pass
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            token = get_token()
+        except ValueError:
+            # Something is wrong with the token formatting
+            # formatting
+            callback()
+            return f(*args, **kwargs)
+        if not token:
+            # Token isn't in the request or the session
+            callback()
+            return f(*args, **kwargs)
+        json_token = check_token(token, pubkey())
+        if not json_token:
+            # The token isn't valid
+            callback()
+            return f(*args, **kwargs)
+        g.authenticated = True
+        g.raw_token = get_token()
+        g.json_token = get_json_token()
+        return f(*args, **kwargs)
+    return decorated
+
+
+# =====
+# Forms
+# =====
+
+# inspired by http://flask.pocoo.org/snippets/63/
+# Note that this never uses request.referrer - if
+# pages want the user to get redirect back to them
+# they should link to /login?next=$THEIR_URL_HERE
+class RedirectForm(FlaskForm):
+    """
+    A form object which intelligently handles redirects.
+
+    Templates should include the following their form element:
+    {{ form.next() or '' }}
+
+    Rendering the original form will pull anything passed via
+    form values or the query string and drop it in the hidden field.
+
+    When the POST is sent the value is then checked, and if it passes
+    the criteria of is_safe_url the user is redirected to the page.
+    """
+
+    next = HiddenField()
+
+    def __init__(self, *args, **kwargs):
+        FlaskForm.__init__(self, *args, **kwargs)
+        if self.next.data is None:
+            self.next.data = request.values.get("next", '')
+
+    def is_safe_url(self, target):
+        """
+        Checks if a URL is safe to redirect to
+        """
+        ref_url = urlparse(request.host_url)
+        test_url = urlparse(urljoin(request.host_url, target))
+        if test_url.scheme in ('http', 'https') and \
+                ref_url.netloc == test_url.netloc:
+            return True
+        else:
+            return False
+
+    def redirect(self, endpoint='root'):
+        if self.next.data is not None and \
+                self.is_safe_url(request.form['next']):
+            return redirect(request.form['next'])
+        else:
+            return redirect(url_for(endpoint))
+
+
+class LoginForm(RedirectForm):
+    """
+    Form for handling login information
+    """
     user = StringField(
         'user',
         validators=[
@@ -94,9 +380,13 @@ class LoginForm(FlaskForm):
         'pass',
         validators=[]
     )
+    next = HiddenField()
 
 
-class RegistrationForm(FlaskForm):
+class RegistrationForm(RedirectForm):
+    """
+    Form for handling registration information
+    """
     user = StringField(
         'user',
         validators=[
@@ -115,9 +405,13 @@ class RegistrationForm(FlaskForm):
     confirm = PasswordField(
         'repeat_password'
     )
+    next = HiddenField()
 
 
 class DeauthRefreshTokenForm(FlaskForm):
+    """
+    Form for getting the refresh token to deauth
+    """
     refresh_token = StringField(
         'refresh_token',
         validators=[
@@ -126,148 +420,20 @@ class DeauthRefreshTokenForm(FlaskForm):
     )
 
 
-def check_token(token, pubkey):
-    """
-    Check the token
-    Assumes it's in the format the whogoesthere server returns
-    """
-    try:
-        token = jwt.decode(
-            token,
-            pubkey,
-            algorithm="RS256"
-        )
-        return token
-    except jwt.InvalidTokenError:
-        return False
-
-
-def _get_token():
-    """
-    Get the token from the response
-    Expects the response to supply the token in one of the
-    three ways specified in RFC 6750
-    """
-    # https://tools.ietf.org/html/rfc6750#section-2
-    def from_header():
-        # https://tools.ietf.org/html/rfc6750#section-2.1
-        try:
-            auth_header = request.headers['Authorization']
-            if not auth_header.startswith("Bearer: "):
-                raise ValueError("Malformed auth header")
-            return auth_header[8:]
-        except KeyError:
-            # Auth isn't in the header
-            return None
-
-    def from_form():
-        # https://tools.ietf.org/html/rfc6750#section-2.2
-        try:
-            return request.form['access_token']
-        except KeyError:
-            return None
-
-    def from_query():
-        # https://tools.ietf.org/html/rfc6750#section-2.3
-        try:
-            return request.args['access_token']
-        except KeyError:
-            return None
-
-    tokens = []
-
-    for x in [from_header, from_form, from_query]:
-        token = x()
-        if token:
-            tokens.append(token)
-
-    # Be a bit forgiving, don't break if they passed the
-    # same token twice, even if they aren't supposed to.
-    tokens = set(tokens)
-
-    if len(tokens) > 1:
-        raise ValueError("Too many tokens!")
-    elif len(tokens) == 1:
-        return tokens.pop()
-    else:
-        return None
-
-
-def get_token():
-    # Our app also stores tokens in the session
-    # after the initial login, so we wrap the RFCs
-    # token retrieval impementations in a backup
-    # that checks the session
-    token = _get_token()
-    if not token:
-        token = session.get('access_token', None)
-    return token
-
-
-def pubkey():
-    # A function which returns the pubkey,
-    # "freshened" if required.
-    global pubkey_tuple
-    if not pubkey_tuple or \
-            (datetime.datetime.now() - pubkey_tuple[1]) > \
-            datetime.timedelta(seconds=(environ.get("PUBKEY_CACHE_TIMEOUT", 300))):
-        # Refresh the pubkey tuple
-        pubkey_resp = requests.get(environ['WHOGOESTHERE_URL'] + "/pubkey")
-        if pubkey_resp.status_code != 200:
-            if not pubkey_tuple:
-                raise ValueError("Pubkey couldn't be retrieved!")
-        pubkey = pubkey_resp.text
-        pubkey_tuple = (pubkey, datetime.datetime.now())
-    return pubkey_tuple[0]
-
-
-# Wrapper for when a user _must_ be authenticated
-def requires_authentication(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        try:
-            token = get_token()
-        except ValueError:
-            # Something is wrong with the token formatting
-            return redirect("/login")
-        if not token:
-            # Token isn't in the request or the session
-            return redirect("/login")
-        json_token = check_token(token, pubkey())
-        if not json_token:
-            # The token isn't valid
-            return redirect("/login")
-        return f(*args, **kwargs, access_token=json_token)
-    return decorated
-
-
-# Wrapper for when a user _may_ be authenticated
-def optional_authentication(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        try:
-            token = get_token()
-        except ValueError:
-            # Something is wrong with the token formatting
-            # formatting
-            return f(*args, **kwargs, access_token=None)
-        if not token:
-            # Token isn't in the request or the session
-            return f(*args, **kwargs, access_token=None)
-        json_token = check_token(token, pubkey())
-        if not json_token:
-            # The token isn't valid
-            return f(*args, **kwargs, access_token=None)
-        return f(*args, **kwargs, access_token=json_token)
-    return decorated
-
+# =====
+# Routes
+# =====
 
 @app.route("/")
 @optional_authentication
-def root(access_token=None):
+def root():
     # Go get the pubkey to confirm the token from the server
-    if access_token is not None:
-        return render_template('logged_in.html', user=access_token['user'], token=get_token())
+    if g.authenticated:
+        return render_template(
+            'logged_in.html',
+            user=get_json_token()['user'],
+            token=g.json_token
+        )
     else:
         return "<a href='{}'>Login</a> <a href='{}'>Register</a>".format(
             url_for("login"),
@@ -279,7 +445,6 @@ def root(access_token=None):
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-
         # post, set token in session
         token_resp = requests.get(
             environ['WHOGOESTHERE_URL'] + '/auth_user',
@@ -290,26 +455,30 @@ def login():
         )
         if token_resp.status_code != 200:
             # Incorrect username/password
-            return redirect("/login")
+            return redirect(url_for("login"))
         token = token_resp.text
         session['access_token'] = token
-        response = make_response(redirect("/"))
-        return response
+        return form.redirect('root')
     else:
         # Get, serve the form
-        return render_template('login.html', form=form)
+        return render_template(
+            'login.html',
+            form=form,
+            register_url=url_for('register')
+        )
 
 
 @app.route("/logout")
 @requires_authentication
-def logout(access_token=None):
-    if not access_token:
-        raise AssertionError("No token!")
+def logout():
+    g.authenticated = False
+    g.raw_token = None
+    g.json_token = None
     try:
         del session['access_token']
     except KeyError:
         pass
-    return redirect("/")
+    return redirect(url_for("root"))
 
 
 @app.route("/register", methods=['GET', 'POST'])
@@ -328,22 +497,26 @@ def register():
         if make_user_resp.status_code != 200:
             raise ValueError()
         login()
-        return redirect("/")
+        return redirect(url_for("root"))
     else:
         # Get, serve the form
-        return render_template('register.html', form=form)
+        return render_template(
+            'register.html',
+            form=form,
+            login_url=url_for('login')
+        )
 
 
 @app.route("/refresh_token")
 @requires_authentication
-def refresh_token(access_token=None):
-    if not access_token:
-        raise AssertionError("No token!")
-
-    # We use get_token() here to get the base64 original token
+def refresh_token():
+    # Hammering refresh on this page will generate a new
+    # refresh token each time - in reality this page
+    # should probably generate a new page dynamically
+    # with the token on it to redirect to.
     refresh_token_response = requests.get(
         environ['WHOGOESTHERE_URL'] + "/refresh_token",
-        data={"access_token": get_token()}
+        data={"access_token": g.raw_token}
     )
     if refresh_token_response.status_code != 200:
         raise ValueError()
@@ -352,19 +525,19 @@ def refresh_token(access_token=None):
 
 @app.route("/deauth_refresh_token", methods=['GET', 'POST'])
 @requires_authentication
-def deauth_refresh_token(access_token=None):
-    if not access_token:
-        raise AssertionError("No token!")
-
+def deauth_refresh_token():
     form = DeauthRefreshTokenForm()
     if form.validate_on_submit():
         del_refresh_token_response = requests.delete(
             environ['WHOGOESTHERE_URL'] + '/refresh_token',
-            data={"access_token": get_token(),
+            data={"access_token": g.raw_token,
                   "refresh_token": request.form['refresh_token']}
         )
         if del_refresh_token_response.status_code != 200:
             raise ValueError()
-        return make_response("Deleted!")
+        return redirect(url_for("root"))
     else:
-        return render_template('deauth_refresh_token.html', form=form)
+        return render_template(
+            'deauth_refresh_token.html',
+            form=form
+        )
