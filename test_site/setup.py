@@ -10,6 +10,7 @@ setup(
         'pymongo',
         'cryptography',
         'PyJWT',
+        'flask_jwtlib',
         'requests'
     ]
 )

@@ -15,10 +15,11 @@ import bcrypt
 
 from pymongo import MongoClient
 
+import flask_jwtlib
+
 from .exceptions import Error, UserAlreadyExistsError, \
     UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError
 
-import flask_jwtlib
 
 __author__ = "Brian Balsamo"
 __email__ = "brian@brianbalsamo.com"
@@ -267,7 +268,7 @@ def handle_configs(setup_state):
     BLUEPRINT.config['authentication_db'] = \
         authentication_client[BLUEPRINT.config.get('AUTHENTICATION_MONGO_DB', 'whogoesthere')]
 
-    flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBKEY'])
+    flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBLIC_KEY'])
 
     if BLUEPRINT.config.get("VERBOSITY"):
         log.debug("Setting verbosity to {}".format(str(BLUEPRINT.config['VERBOSITY'])))
