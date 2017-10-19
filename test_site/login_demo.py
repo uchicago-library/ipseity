@@ -1,8 +1,8 @@
 """
-Demo of using a whogoesthere JWT server for authentication.
+Demo of using a ipseity JWT server for authentication.
 
 # Required env vars
-* WHOGOESTHERE_URL: The URL of the whogoesthere server
+* IPSEITY_URL: The URL of the ipseity server
 * SESSION_MONGODB_HOST: The address of a mongo server
     to use to store sessions
 
@@ -15,11 +15,11 @@ Demo of using a whogoesthere JWT server for authentication.
     to run multiple instances sharing sessions.
 * SESSION_MONGODB_PORT: The port your $SESSION_MONGODB_HOST
     is listening on, if not 27017
-* WHOGOESTHERE_PUBKEY: The pubkey of the whogoesthere server,
+* IPSEITY_PUBKEY: The pubkey of the ipseity server,
     providing it explicitly will prevent periodically retrieving
     it from the remote server
 * PUBKEY_CACHE_TIMEOUT: How long, in seconds, before we check
-    the whogoesthere server to refresh the pubkey cache
+    the ipseity server to refresh the pubkey cache
     (if in use). Defaults to 300 seconds (5 minutes)
 """
 
@@ -75,11 +75,11 @@ Session(app)
 # =====
 
 # Setup pubkey, either static from env var or retrieved from server
-if environ.get("WHOGOESTHERE_PUBKEY"):
-    flask_jwtlib.set_permanent_pubkey(environ['WHOGOESTHERE_PUBKEY'])
+if environ.get("IPSEITY_PUBKEY"):
+    flask_jwtlib.set_permanent_pubkey(environ['IPSEITY_PUBKEY'])
 else:
     def retrieve_pubkey():
-        pubkey_resp = requests.get(environ['WHOGOESTHERE_URL'] + "/pubkey")
+        pubkey_resp = requests.get(environ['IPSEITY_URL'] + "/pubkey")
         if pubkey_resp.status_code != 200:
             raise ValueError("Pubkey couldn't be retrieved!")
         pubkey = pubkey_resp.text
@@ -267,7 +267,7 @@ def login():
     if form.validate_on_submit():
         # post, set token in session
         token_resp = requests.get(
-            environ['WHOGOESTHERE_URL'] + '/auth_user',
+            environ['IPSEITY_URL'] + '/auth_user',
             data={
                 'user': request.form['user'],
                 'pass': request.form['password']
@@ -308,7 +308,7 @@ def register():
 
         # post, make a user
         make_user_resp = requests.post(
-            environ['WHOGOESTHERE_URL'] + "/make_user",
+            environ['IPSEITY_URL'] + "/make_user",
             data={
                 'user': request.form['user'],
                 'pass': request.form['password']
@@ -335,7 +335,7 @@ def refresh_token():
     # should probably generate a new page dynamically
     # with the token on it to redirect to.
     refresh_token_response = requests.get(
-        environ['WHOGOESTHERE_URL'] + "/refresh_token",
+        environ['IPSEITY_URL'] + "/refresh_token",
         data={"access_token": g.raw_token}
     )
     if refresh_token_response.status_code != 200:
@@ -349,7 +349,7 @@ def deauth_refresh_token():
     form = DeauthRefreshTokenForm()
     if form.validate_on_submit():
         del_refresh_token_response = requests.delete(
-            environ['WHOGOESTHERE_URL'] + '/refresh_token',
+            environ['IPSEITY_URL'] + '/refresh_token',
             data={"access_token": g.raw_token,
                   "refresh_token": request.form['refresh_token']}
         )

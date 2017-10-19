@@ -10,24 +10,24 @@ import jwt
 import flask_jwtlib
 
 # Defer any configuration to the tests setUp()
-environ['WHOGOESTHERE_DEFER_CONFIG'] = "True"
+environ['IPSEITY_DEFER_CONFIG'] = "True"
 
-import whogoesthere
+import ipseity
 
 # Set up TESTING and DEBUG env vars to be picked up by Flask
-whogoesthere.app.config['DEBUG'] = True
-whogoesthere.app.config['TESTING'] = True
+ipseity.app.config['DEBUG'] = True
+ipseity.app.config['TESTING'] = True
 # Set a random secret key for testing
-whogoesthere.app.config['SECRET_KEY'] = str(urandom(32))
+ipseity.app.config['SECRET_KEY'] = str(urandom(32))
 
 # Duplicate app config settings into the bp, like the register would
-whogoesthere.blueprint.BLUEPRINT.config['DEBUG'] = True
-whogoesthere.blueprint.BLUEPRINT.config['TESTING'] = True
-whogoesthere.blueprint.BLUEPRINT.config['SECRET_KEY'] = \
-    whogoesthere.app.config['SECRET_KEY']
+ipseity.blueprint.BLUEPRINT.config['DEBUG'] = True
+ipseity.blueprint.BLUEPRINT.config['TESTING'] = True
+ipseity.blueprint.BLUEPRINT.config['SECRET_KEY'] = \
+    ipseity.app.config['SECRET_KEY']
 
 # Don't use these for anything other than tests, duh.
-whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY'] = \
+ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY'] = \
     """ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCmuP2ryLX32wqVXoKzE
 MjX5JaOSxUnUC3SzuVpzUO0DRvWanKuvV7IhgGPboEWKbcUrSJIfVeGtD9p6Coov
 bX7UccaABjIJNd7NB66Y4eizDDxF4Bm4owkmmfESMEsUuVjI8q0Zq7nXhO62B3ix
@@ -35,7 +35,7 @@ u+Zo9sGxyHj5bJ292Qu+beX/DVlWUQeOU9i0XJ4YhlOtNQjS8ZURga0Kmh3Ppffv
 +lm3IDMdewT35XbcNmsxrPVLykk9s47TwfN0N2/wAEnodZfBZP8if9+QSI6ilxP/
 LjXbcXfY1MG8CtTrc/zoic/uODL4j3b6L/qV4bsWvof8imGcRWIDFc83CTW2UCyC
 eFR dontuseme"""
-whogoesthere.blueprint.BLUEPRINT.config['PRIVATE_KEY'] = \
+ipseity.blueprint.BLUEPRINT.config['PRIVATE_KEY'] = \
     """-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAprj9q8i199sKlV6CsxDI1+SWjksVJ1At0s7lac1DtA0b1mpy
 rr1eyIYBj26BFim3FK0iSH1XhrQ/aegqKL21+1HHGgAYyCTXezQeumOHosww8ReA
@@ -64,10 +64,10 @@ AUyLcfa1WTibE8n9Ih7BPE8EtL4KUyk15MBRGMeOgsjCRoIcmL6OssyqTYXlIbYr
 2BkwsDueSsMfqSCKitaXfyt4Gc/3vtB60D3JWzZ8cEENVNEfhclD
 -----END RSA PRIVATE KEY-----"""
 
-whogoesthere.app.config['PUBLIC_KEY'] = \
-    whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY']
+ipseity.app.config['PUBLIC_KEY'] = \
+    ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY']
 
-flask_jwtlib.set_permanent_pubkey(whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY'])
+flask_jwtlib.set_permanent_pubkey(ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY'])
 
 
 class Tests(unittest.TestCase):
@@ -77,16 +77,14 @@ class Tests(unittest.TestCase):
         # Run a local mongo on 27017 for testing
         # docker run -p 27017:27017 mongo <-- fire one up with docker if required
         self.client = MongoClient('localhost', 27017)
-        whogoesthere.blueprint.BLUEPRINT.config['authentication_db'] = \
-            self.client['whogoesthere_test']
-        whogoesthere.blueprint.BLUEPRINT.config['claims_db'] = \
-            self.client['whogoesthere_test']
-        self.app = whogoesthere.app.test_client()
+        ipseity.blueprint.BLUEPRINT.config['authentication_db'] = \
+            self.client['ipseity_test']
+        self.app = ipseity.app.test_client()
 
     def tearDown(self):
         # Perform any tear down that should
         # occur after every test
-        self.client.drop_database('whogoesthere_test')
+        self.client.drop_database('ipseity_test')
         del self.client
         del self.app
 
@@ -98,7 +96,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
     def testVersionAvailable(self):
-        x = getattr(whogoesthere, "__version__", None)
+        x = getattr(ipseity, "__version__", None)
         self.assertTrue(x is not None)
 
     def testVersion(self):
@@ -107,7 +105,7 @@ class Tests(unittest.TestCase):
         version_json = json.loads(version_response.data.decode())
         api_reported_version = version_json['version']
         self.assertEqual(
-            whogoesthere.blueprint.__version__,
+            ipseity.blueprint.__version__,
             api_reported_version
         )
 
@@ -116,7 +114,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(pubkey_response.status_code, 200)
         pubkey = pubkey_response.data.decode()
         self.assertEqual(
-            whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY'],
+            ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY'],
             pubkey
         )
 
@@ -141,7 +139,7 @@ class Tests(unittest.TestCase):
         authentication_token = authentication_response.data.decode()
         decoded_token = jwt.decode(
             authentication_token,
-            whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY'],
+            ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY'],
             algorithm='RS256'
         )
         self.assertEqual(decoded_token['user'], 'foo')

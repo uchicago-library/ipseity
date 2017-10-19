@@ -262,11 +262,11 @@ def handle_configs(setup_state):
         return
 
     authentication_client = MongoClient(
-        BLUEPRINT.config['AUTHENTICATION_MONGO_HOST'],
-        int(BLUEPRINT.config.get('AUTHENTICATION_MONGO_PORT', 27017))
+        BLUEPRINT.config['MONGO_HOST'],
+        int(BLUEPRINT.config.get('MONGO_PORT', 27017))
     )
     BLUEPRINT.config['authentication_db'] = \
-        authentication_client[BLUEPRINT.config.get('AUTHENTICATION_MONGO_DB', 'whogoesthere')]
+        authentication_client[BLUEPRINT.config.get('MONGO_DB', 'whogoesthere')]
 
     flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBLIC_KEY'])
 

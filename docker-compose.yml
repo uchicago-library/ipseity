@@ -2,12 +2,12 @@ version: "2.0"
 services:
     mongo:
         image: mongo
-    whogoesthere:
+    ipseity:
         build:
             context: .
         environment:
-            WHOGOESTHERE_AUTHENTICATION_MONGO_HOST: mongo
-            WHOGOESTHERE_PUBLIC_KEY: |-
+            IPSEITY_MONGO_HOST: mongo
+            IPSEITY_PUBLIC_KEY: |-
                 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCmuP2ryLX32wqVXoKzE
                 MjX5JaOSxUnUC3SzuVpzUO0DRvWanKuvV7IhgGPboEWKbcUrSJIfVeGtD9p6Coov
                 bX7UccaABjIJNd7NB66Y4eizDDxF4Bm4owkmmfESMEsUuVjI8q0Zq7nXhO62B3ix
@@ -15,7 +15,7 @@ services:
                 +lm3IDMdewT35XbcNmsxrPVLykk9s47TwfN0N2/wAEnodZfBZP8if9+QSI6ilxP/
                 LjXbcXfY1MG8CtTrc/zoic/uODL4j3b6L/qV4bsWvof8imGcRWIDFc83CTW2UCyC
                 eFR dontuseme
-            WHOGOESTHERE_PRIVATE_KEY: |- 
+            IPSEITY_PRIVATE_KEY: |- 
                 -----BEGIN RSA PRIVATE KEY-----
                 MIIEowIBAAKCAQEAprj9q8i199sKlV6CsxDI1+SWjksVJ1At0s7lac1DtA0b1mpy
                 rr1eyIYBj26BFim3FK0iSH1XhrQ/aegqKL21+1HHGgAYyCTXezQeumOHosww8ReA
@@ -50,8 +50,8 @@ services:
             context: ./test_site
         environment:
             SESSION_MONGODB_HOST: mongo
-            WHOGOESTHERE_URL: http://whogoesthere
+            IPSEITY_URL: http://ipseity
         ports: 
             - 5000:80
         depends_on:
-            - whogoesthere
+            - ipseity

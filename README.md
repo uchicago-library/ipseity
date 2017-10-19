@@ -1,8 +1,12 @@
-# whogoesthere
+# ipseity
 
 v0.0.1
 
-[![Build Status](https://travis-ci.org/bnbalsamo/whogoesthere.svg?branch=master)](https://travis-ci.org/bnbalsamo/whogoesthere) [![Coverage Status](https://coveralls.io/repos/github/bnbalsamo/whogoesthere/badge.svg?branch=master)](https://coveralls.io/github/bnbalsamo/whogoesthere?branch=master)
+[![Build Status](https://travis-ci.org/bnbalsamo/ipseity.svg?branch=master)](https://travis-ci.org/bnbalsamo/ipseity) [![Coverage Status](https://coveralls.io/repos/github/bnbalsamo/ipseity/badge.svg?branch=master)](https://coveralls.io/github/bnbalsamo/ipseity?branch=master)
+
+
+ipseity (noun): selfhood; individual identity, individuality
+
 
 An authentication API microservice
 
@@ -56,8 +60,8 @@ Set environmental variables appropriately
 # Docker Quickstart
 Inject environmental variables appropriately at either buildtime or runtime
 ```
-# docker build . -t whogoesthere
-# docker run -p 5000:80 whogoesthere --name my_whogoesthere
+# docker build . -t ipseity 
+# docker run -p 5000:80 ipseity --name my_ipseity
 ```
 
 # Endpoints
@@ -114,14 +118,14 @@ Inject environmental variables appropriately at either buildtime or runtime
 
 # Environmental Variables
 ## Required
-* WHOGOESTHERE_AUTHENTICATION_MONGO_HOST: The IP address or hostname of the mongo server for authentication data
-* WHOGOESTHERE_PUBLIC_KEY: A public rsa key in ssh format
-* WHOGOESTHERE_PRIVATE_KEY: A private rsa key in ssh format
+* IPSEITY__MONGO_HOST: The IP address or hostname of the mongo server for authentication data
+* IPSEITY_PUBLIC_KEY: A public rsa key in ssh format
+* IPSEITY_PRIVATE_KEY: A private rsa key in ssh format
 ## Optional (defaults)
-* WHOGOESTHERE_AUTHENTICATION_MONGO_PORT (27017): The port the Mongo server is running on
-* WHOGOESTHERE_AUTHENTICATION_MONGO_DB (whogoesthere): The mongo db name to use to store credentials
-* WHOGOESTHERE_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
-* WHOGOESTHERE_VERBOSITY (WARN): The verbosity of the logs
+* IPSEITY_MONGO_PORT (27017): The port the Mongo server is running on
+* IPSEITY_MONGO_DB (ipseity): The mongo db name to use to store credentials
+* IPSEITY_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
+* IPSEITY_VERBOSITY (WARN): The verbosity of the logs
 
 # Author
 Brian Balsamo <brian@brianbalsamo.com>

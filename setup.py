@@ -7,7 +7,7 @@ def readme():
 
 
 setup(
-    name="whogoesthere",
+    name="ipseity",
     description="An authentication API",
     version="0.0.1",
     long_description=readme(),
@@ -18,7 +18,7 @@ setup(
         ]
     ),
     include_package_data=True,
-    url='https://github.com/bnbalsamo/whogoesthere',
+    url='https://github.com/bnbalsamo/ipseity',
     dependency_links=[
         'https://github.com/bnbalsamo/flask_jwtlib' +
         '/tarball/master#egg=flask_jwtlib'

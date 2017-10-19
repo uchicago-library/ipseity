@@ -4,7 +4,7 @@ from flask_env import MetaFlaskEnv
 
 
 class Configuration(metaclass=MetaFlaskEnv):
-    ENV_PREFIX = 'WHOGOESTHERE_'
+    ENV_PREFIX = 'IPSEITY_'
     DEBUG = False
     DEFER_CONFIG = False
 
