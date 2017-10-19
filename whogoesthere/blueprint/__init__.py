@@ -7,7 +7,7 @@ import json
 from functools import wraps
 from uuid import uuid4
 
-from flask import Blueprint, jsonify, Response, request, abort
+from flask import Blueprint, jsonify, Response, request, abort, g
 from flask_restful import Resource, Api, reqparse
 
 import jwt
@@ -123,11 +123,25 @@ def requires_authentication(f):
         if not token:
             # No token supplied, 401
             abort(401)
-        decoded_token = _check_token(token)
-        if not decoded_token:
+        json_token = _check_token(token)
+        if not json_token:
             # The token was invalid, 401
             abort(401)
-        return f(*args, **kwargs, access_token=decoded_token)
+        g.raw_token = token
+        g.json_token = json_token
+        return f(*args, **kwargs)
+    return decorated
+
+
+# Decorator for functions that require using a token
+# which was generated from username/password authentication,
+# rather than refresh token.
+def requires_password_authentication(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if g.json_token['authentication_method'] != 'password':
+            abort(403)
+        return f(*args, **kwargs)
     return decorated
 
 
@@ -137,6 +151,16 @@ def handle_errors(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
+
+
+@BLUEPRINT.before_request
+def set_g_defaults():
+    """
+    Set the defaults for the authentication variables
+    """
+    g.authenticated = False
+    g.raw_token = None
+    g.json_token = None
 
 
 class Root(Resource):
@@ -185,25 +209,23 @@ class MakeUser(Resource):
 
 class RemoveUser(Resource):
     @requires_authentication
-    def delete(self, access_token=None):
-        if not access_token:
-            raise ValueError("No token!")
-
-        log.debug("Attempting to delete user: {}".format(access_token['user']))
+    @requires_password_authentication
+    def delete(self):
+        log.debug("Attempting to delete user: {}".format(g.json_token['user']))
 
         res = BLUEPRINT.config['authentication_db']['authentication'].delete_one(
             {
-                'user': access_token['user']
+                'user': g.json_token['user']
             }
         )
 
         if res.deleted_count == 1:
             # success
-            log.info("User {} deleted".format(access_token['user']))
+            log.info("User {} deleted".format(g.json_token['user']))
             return {"success": True}
         else:
             # fail
-            log.info("Deletetion attempt on user {} failed".format(access_token['user']))
+            log.info("Deletetion attempt on user {} failed".format(g.json_token['user']))
             return {"success": False}
 
 
@@ -217,8 +239,10 @@ class AuthUser(Resource):
         args = parser.parse_args()
         log.debug("Attempting to auth {}".format(args['user']))
 
+        auth_method = None
         if not args['pass']:
             # Token based auth
+            auth_method = "refresh_token"
             user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
                 {"refresh_tokens": args['user']}
             )
@@ -227,6 +251,7 @@ class AuthUser(Resource):
                 raise InvalidTokenError(args['user'])
         else:
             # username/password auth
+            auth_method = "password"
             user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
                 {'user': args['user']}
             )
@@ -245,7 +270,8 @@ class AuthUser(Resource):
             'exp': datetime.datetime.utcnow() +
             datetime.timedelta(seconds=BLUEPRINT.config.get('EXP_DELTA', 86400)),
             'nbf': datetime.datetime.utcnow(),
-            'iat': datetime.datetime.utcnow()
+            'iat': datetime.datetime.utcnow(),
+            'authentication_method': auth_method
         }
 
         encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
@@ -277,25 +303,21 @@ class CheckToken(Resource):
 
 class Test(Resource):
     @requires_authentication
-    def get(self, access_token=None):
-        if not access_token:
-            raise ValueError("No token!")
-        return access_token
+    def get(self):
+        return g.json_token
 
 
 class ChangePassword(Resource):
     @requires_authentication
-    def post(self, access_token=None):
+    @requires_password_authentication
+    def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('new_pass', type=str, required=True,
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        if not access_token:
-            raise ValueError("No token!")
-
         BLUEPRINT.config['authentication_db']['authentication'].update_one(
-            {'user': access_token['user']},
+            {'user': g.json_token['user']},
             {'$set': {'password': bcrypt.hashpw(args['new_pass'].encode(), bcrypt.gensalt())}}
         )
 
@@ -304,29 +326,24 @@ class ChangePassword(Resource):
 
 class RefreshToken(Resource):
     @requires_authentication
-    def get(self, access_token=None):
-        if not access_token:
-            raise ValueError("No token!")
-
+    @requires_password_authentication
+    def get(self):
         refresh_token = uuid4().hex
         BLUEPRINT.config['authentication_db']['authentication'].update_one(
-            {'user': access_token['user']},
+            {'user': g.json_token['user']},
             {'$push': {'refresh_tokens': refresh_token}}
         )
         return Response(refresh_token)
 
     @requires_authentication
-    def delete(self, access_token=None):
-        if not access_token:
-            raise ValueError("No token!")
-
+    def delete(self):
         parser = reqparse.RequestParser()
         parser.add_argument('refresh_token', type=str, required=True,
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
         res = BLUEPRINT.config['authentication_db']['authentication'].update_one(
-            {'user': access_token['user']},
+            {'user': g.json_token['user']},
             {'$pull': {'refresh_tokens': args['refresh_token']}}
         )
 

@@ -262,6 +262,40 @@ class Tests(unittest.TestCase):
                                                    data={"user": refresh_token})
         self.assertEqual(third_auth_attempt_response.status_code, 400)
 
+    def test_token_limitations(self):
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        # Use our first access token to generate a refresh token
+        refresh_token_response = self.app.get("/refresh_token",
+                                              data={'access_token': access_token})
+        self.assertEqual(refresh_token_response.status_code, 200)
+        refresh_token = refresh_token_response.data.decode()
+        # Use the refresh token to get a new access token
+        second_authentication_response = self.app.get("/auth_user",
+                                                      data={'user': refresh_token})
+        self.assertEqual(second_authentication_response.status_code, 200)
+        second_access_token = second_authentication_response.data.decode()
+
+        # Now that we've got our refresh token based access token, lets
+        # try to do all the things we can't.
+        delete_me_response = self.app.delete("/del_user",
+                                             data={'access_token': second_access_token})
+        self.assertEqual(delete_me_response.status_code, 403)
+
+        new_refresh_token_response = self.app.get("/refresh_token",
+                                                  data={'access_token': second_access_token})
+        self.assertEqual(new_refresh_token_response.status_code, 403)
+
+        chpass_response = self.app.post("/change_pass",
+                                        data={'access_token': second_access_token,
+                                              'new_pass': 'buzz'})
+        self.assertEqual(chpass_response.status_code, 403)
+
+
 
 
 
