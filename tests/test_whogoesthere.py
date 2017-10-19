@@ -7,6 +7,8 @@ from pymongo import MongoClient
 
 import jwt
 
+import flask_jwtlib
+
 # Defer any configuration to the tests setUp()
 environ['WHOGOESTHERE_DEFER_CONFIG'] = "True"
 
@@ -64,6 +66,8 @@ AUyLcfa1WTibE8n9Ih7BPE8EtL4KUyk15MBRGMeOgsjCRoIcmL6OssyqTYXlIbYr
 
 whogoesthere.app.config['PUBLIC_KEY'] = \
     whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY']
+
+flask_jwtlib.set_permanent_pubkey(whogoesthere.blueprint.BLUEPRINT.config['PUBLIC_KEY'])
 
 
 class Tests(unittest.TestCase):
@@ -256,6 +260,7 @@ class Tests(unittest.TestCase):
                 "refresh_token": refresh_token
             }
         )
+        self.assertEqual(deactivate_refresh_response.status_code, 200)
         # Be sure we can't use that refresh token anymore
         # We get a 400 when we try
         third_auth_attempt_response = self.app.get("/auth_user",
@@ -294,9 +299,6 @@ class Tests(unittest.TestCase):
                                         data={'access_token': second_access_token,
                                               'new_pass': 'buzz'})
         self.assertEqual(chpass_response.status_code, 403)
-
-
-
 
 
 if __name__ == "__main__":

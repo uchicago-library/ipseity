@@ -19,14 +19,19 @@ setup(
     ),
     include_package_data=True,
     url='https://github.com/bnbalsamo/whogoesthere',
+    dependency_links=[
+        'https://github.com/bnbalsamo/flask_jwtlib' +
+        '/tarball/master#egg=flask_jwtlib'
+    ],
     install_requires=[
+        'cryptography',
         'flask>0',
         'flask_env',
         'flask_restful',
+        'flask_jwtlib',
         'PyJWT',
         'bcrypt',
-        'pymongo',
-        'cryptography'
+        'pymongo'
     ],
     tests_require=[
         'pytest'

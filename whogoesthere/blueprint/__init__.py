@@ -7,7 +7,7 @@ import json
 from functools import wraps
 from uuid import uuid4
 
-from flask import Blueprint, jsonify, Response, request, abort, g
+from flask import Blueprint, jsonify, Response, abort, g
 from flask_restful import Resource, Api, reqparse
 
 import jwt
@@ -17,6 +17,8 @@ from pymongo import MongoClient
 
 from .exceptions import Error, UserAlreadyExistsError, \
     UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError
+
+import flask_jwtlib
 
 __author__ = "Brian Balsamo"
 __email__ = "brian@brianbalsamo.com"
@@ -32,105 +34,12 @@ API = Api(BLUEPRINT)
 log = logging.getLogger(__name__)
 
 
-def _check_token(token):
-    """
-    Check the token
-
-    Tries to check against a provided public key (if one exists)
-    """
-    try:
-        token = jwt.decode(
-            token,
-            BLUEPRINT.config['PUBLIC_KEY'],
-            algorithm="RS256"
-        )
-        return token
-    except jwt.InvalidTokenError:
-        return False
+def required_auth_failure_callback():
+    abort(401)
 
 
-def _get_token():
-    """
-    Get the token from the response
-
-    Expects the token to supply the token in one of the
-    three ways specified in RFC 6750
-    """
-    # https://tools.ietf.org/html/rfc6750#section-2
-    def from_header():
-        # https://tools.ietf.org/html/rfc6750#section-2.1
-        try:
-            auth_header = request.headers['Authorization']
-            if not auth_header.startswith("Bearer: "):
-                raise ValueError("Malformed auth header")
-            return auth_header[8:]
-        except KeyError:
-            # Auth isn't in the header
-            return None
-
-    def from_form():
-        # https://tools.ietf.org/html/rfc6750#section-2.2
-        try:
-            return request.form['access_token']
-        except KeyError:
-            return None
-
-    def from_query():
-        # https://tools.ietf.org/html/rfc6750#section-2.3
-        try:
-            return request.args['access_token']
-        except KeyError:
-            return None
-
-    tokens = []
-
-    for x in [from_header, from_form, from_query]:
-        token = x()
-        if token:
-            tokens.append(token)
-
-    # Be a bit forgiving, don't break if they passed the
-    # same token twice, even if they aren't supposed to.
-    tokens = set(tokens)
-
-    if len(tokens) > 1:
-        raise ValueError("Too many tokens!")
-    elif len(tokens) == 1:
-        return tokens.pop()
-    else:
-        return None
-
-
-# Decorator for use on endpoints
-def requires_authentication(f):
-    """
-    An example decorator, validates a JWT token passed
-    to the decorated endpoint, and calls it, inserting the
-    decoded token in the access_token kwarg.
-
-    In the event of no token, returns a 401 response
-    """
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        try:
-            token = _get_token()
-        except ValueError:
-            # Something weird went on with the token, but
-            # we don't want to 500 the user.
-            # https://tools.ietf.org/html/rfc6750#section-3.1 suggests
-            # returning a 400 response here.
-            abort(400)
-        if not token:
-            # No token supplied, 401
-            abort(401)
-        json_token = _check_token(token)
-        if not json_token:
-            # The token was invalid, 401
-            abort(401)
-        g.raw_token = token
-        g.json_token = json_token
-        return f(*args, **kwargs)
-    return decorated
+flask_jwtlib.requires_authentication.no_auth_callback = \
+    required_auth_failure_callback
 
 
 # Decorator for functions that require using a token
@@ -151,16 +60,6 @@ def handle_errors(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
-
-
-@BLUEPRINT.before_request
-def set_g_defaults():
-    """
-    Set the defaults for the authentication variables
-    """
-    g.authenticated = False
-    g.raw_token = None
-    g.json_token = None
 
 
 class Root(Resource):
@@ -208,7 +107,7 @@ class MakeUser(Resource):
 
 
 class RemoveUser(Resource):
-    @requires_authentication
+    @flask_jwtlib.requires_authentication
     @requires_password_authentication
     def delete(self):
         log.debug("Attempting to delete user: {}".format(g.json_token['user']))
@@ -302,13 +201,13 @@ class CheckToken(Resource):
 
 
 class Test(Resource):
-    @requires_authentication
+    @flask_jwtlib.requires_authentication
     def get(self):
         return g.json_token
 
 
 class ChangePassword(Resource):
-    @requires_authentication
+    @flask_jwtlib.requires_authentication
     @requires_password_authentication
     def post(self):
         parser = reqparse.RequestParser()
@@ -325,7 +224,7 @@ class ChangePassword(Resource):
 
 
 class RefreshToken(Resource):
-    @requires_authentication
+    @flask_jwtlib.requires_authentication
     @requires_password_authentication
     def get(self):
         refresh_token = uuid4().hex
@@ -335,7 +234,7 @@ class RefreshToken(Resource):
         )
         return Response(refresh_token)
 
-    @requires_authentication
+    @flask_jwtlib.requires_authentication
     def delete(self):
         parser = reqparse.RequestParser()
         parser.add_argument('refresh_token', type=str, required=True,
@@ -367,6 +266,8 @@ def handle_configs(setup_state):
     )
     BLUEPRINT.config['authentication_db'] = \
         authentication_client[BLUEPRINT.config.get('AUTHENTICATION_MONGO_DB', 'whogoesthere')]
+
+    flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBKEY'])
 
     if BLUEPRINT.config.get("VERBOSITY"):
         log.debug("Setting verbosity to {}".format(str(BLUEPRINT.config['VERBOSITY'])))
