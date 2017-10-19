@@ -26,8 +26,9 @@ Demo of using a ipseity JWT server for authentication.
 from os import environ
 from uuid import uuid4
 from urllib.parse import urlparse, urljoin
+from json import dumps
 from flask import Flask, request, redirect, make_response, session, \
-    render_template, url_for, g
+    render_template, url_for, g, flash
 from flask_session import Session
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, HiddenField
@@ -252,19 +253,22 @@ def root():
         return render_template(
             'logged_in.html',
             user=g.json_token['user'],
-            token=g.json_token
+            token=dumps(g.json_token, indent=2)
         )
     else:
-        return "<a href='{}'>Login</a> <a href='{}'>Register</a>".format(
-            url_for("login"),
-            url_for("register")
-        )
+        return redirect(url_for("login"))
 
 
+# An example of using the optional authentication
+# decorator in order to prevent an authenticated
+# user from accessing a resource
 @app.route("/login", methods=['GET', 'POST'])
+@flask_jwtlib.optional_authentication
 def login():
     form = LoginForm()
     if form.validate_on_submit():
+        if g.authenticated:
+            abort(400)
         # post, set token in session
         token_resp = requests.get(
             environ['IPSEITY_URL'] + '/auth_user',
@@ -275,11 +279,15 @@ def login():
         )
         if token_resp.status_code != 200:
             # Incorrect username/password
+            flash("Incorrect username/password")
             return redirect(url_for("login"))
         token = token_resp.text
         session['access_token'] = token
         return form.redirect('root')
     else:
+        if g.authenticated:
+            flash("You must log out to log in again!")
+            return redirect(url_for("root"))
         # Get, serve the form
         return render_template(
             'login.html',
@@ -298,6 +306,7 @@ def logout():
         del session['access_token']
     except KeyError:
         pass
+    flash("You've been logged out!")
     return redirect(url_for("root"))
 
 
@@ -315,7 +324,8 @@ def register():
             }
         )
         if make_user_resp.status_code != 200:
-            raise ValueError()
+            flash("That username is already taken!")
+            return redirect(url_for("register"))
         login()
         return redirect(url_for("root"))
     else:
@@ -339,7 +349,8 @@ def refresh_token():
         data={"access_token": g.raw_token}
     )
     if refresh_token_response.status_code != 200:
-        raise ValueError()
+        flash("There was a problem generating your token!")
+        redirect(url_for("root"))
     return make_response(refresh_token_response.text)
 
 
@@ -354,7 +365,9 @@ def deauth_refresh_token():
                   "refresh_token": request.form['refresh_token']}
         )
         if del_refresh_token_response.status_code != 200:
-            raise ValueError()
+            flash("There was a problem deauthenticating your token!")
+            redirect(url_for("root"))
+        flash("Refresh token deauthenticated!")
         return redirect(url_for("root"))
     else:
         return render_template(
