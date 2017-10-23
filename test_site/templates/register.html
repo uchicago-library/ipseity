@@ -1,18 +1,21 @@
 {% extends "main.html" %}
 {% block body %}
 <center>
-    <b>Register</b>
+    <h1>Register</h1>
     <form method="POST" action="/register">
         {{ form.csrf_token }}
         {{ form.next() or '' }}
         <div class="form-group">
-            <div>{{ form.user.label }}: {{ form.user(class="css_class") }}</div>
+            {{ form.user.label }}<br />
+            {{ form.user() }}
         </div>
         <div class="form-group">
-            <div>{{ form.password.label }}: {{ form.password() }}</div>
+            {{ form.password.label }}<br />
+            {{ form.password() }}
         </div>
         <div class="form-group">
-            <div>{{ form.confirm.label }}: {{ form.confirm() }}</div>
+            {{ form.confirm.label }}<br />
+            {{ form.confirm() }}
         </div>
         <div><input type=submit value=Submit /></div>
     </form>

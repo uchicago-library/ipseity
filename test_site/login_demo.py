@@ -189,7 +189,7 @@ class LoginForm(RedirectForm):
     Form for handling login information
     """
     user = StringField(
-        'user',
+        'User Name',
         validators=[
             DataRequired(),
             Length(min=3)
@@ -197,7 +197,7 @@ class LoginForm(RedirectForm):
     )
     # Password field can be completely blank, for token logins
     password = PasswordField(
-        'pass',
+        'Password',
         validators=[]
     )
     next = HiddenField()
@@ -208,14 +208,14 @@ class RegistrationForm(RedirectForm):
     Form for handling registration information
     """
     user = StringField(
-        'user',
+        'User Name',
         validators=[
             DataRequired(),
             Length(min=3)
         ]
     )
     password = PasswordField(
-        'pass',
+        'Password',
         validators=[
             DataRequired(),
             Length(min=3),
@@ -223,7 +223,7 @@ class RegistrationForm(RedirectForm):
         ]
     )
     confirm = PasswordField(
-        'repeat_password'
+        'Repeat Password'
     )
     next = HiddenField()
 

@@ -1,20 +1,20 @@
 {% extends "main.html" %}
 {% block body %}
 <center>
-    <b>Login</b>
-    {% if error %}
-    <p class=error>{{ error }}</p>
-    {% endif %}
+    <h1>Login</h1>
+    <br />
         <form method="POST" action="/login">
-            {{ form.csrf_token }}
-            {{ form.next() or '' }}
+                {{ form.csrf_token }}
+                {{ form.next() or '' }}
             <div class="form-group">
-                <div>{{ form.user.label }}: {{ form.user(class="css_class") }}</div>
+                {{ form.user.label }}<br />
+                {{ form.user() }}
             </div>
             <div class="form-group">
-                <div>{{ form.password.label }}: {{ form.password() }}</div>
+                {{ form.password.label }}<br />
+                {{ form.password() }}
             </div>
-            <div><input type=submit class="btn btn-default" value=Submit /></div>
+                <div><input type=submit class="btn btn-primary" value=Submit /></div>
         </form>
     <br /> 
     <p>Or, if you don't have a login: <a href="{{ register_url }}">Register</a></p>
