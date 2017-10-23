@@ -279,14 +279,15 @@ def login():
         )
         if token_resp.status_code != 200:
             # Incorrect username/password
-            flash("Incorrect username/password")
+            flash("Incorrect username/password", 'alert-danger')
             return redirect(url_for("login"))
         token = token_resp.text
         session['access_token'] = token
+        flash("You've been logged in", 'alert-success')
         return form.redirect('root')
     else:
         if g.authenticated:
-            flash("You must log out to log in again!")
+            flash("You must log out to log in again!", 'alert-danger')
             return redirect(url_for("root"))
         # Get, serve the form
         return render_template(
@@ -306,7 +307,7 @@ def logout():
         del session['access_token']
     except KeyError:
         pass
-    flash("You've been logged out!")
+    flash("You've been logged out!", 'alert-success')
     return redirect(url_for("root"))
 
 
@@ -324,7 +325,7 @@ def register():
             }
         )
         if make_user_resp.status_code != 200:
-            flash("That username is already taken!")
+            flash("That username is already taken!", 'alert-danger')
             return redirect(url_for("register"))
         login()
         return redirect(url_for("root"))
@@ -349,7 +350,7 @@ def refresh_token():
         data={"access_token": g.raw_token}
     )
     if refresh_token_response.status_code != 200:
-        flash("There was a problem generating your token!")
+        flash("There was a problem generating your token!", 'alert-danger')
         redirect(url_for("root"))
     return make_response(refresh_token_response.text)
 
@@ -365,9 +366,9 @@ def deauth_refresh_token():
                   "refresh_token": request.form['refresh_token']}
         )
         if del_refresh_token_response.status_code != 200:
-            flash("There was a problem deauthenticating your token!")
+            flash("There was a problem deauthenticating your token!", 'alert-danger')
             redirect(url_for("root"))
-        flash("Refresh token deauthenticated!")
+        flash("Refresh token deauthenticated!", 'alert-success')
         return redirect(url_for("root"))
     else:
         return render_template(

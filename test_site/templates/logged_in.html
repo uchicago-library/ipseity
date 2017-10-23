@@ -1,10 +1,8 @@
 {% extends "main.html" %}
 {% block body %}
-    <body>
-        <p>Hello {{ user }}!</p>
-        <p>This is your current token:<br /><pre>{{ token }}</pre></p>
-        <p><a href='./refresh_token'>Generate Permanent Refresh Token</a></p>
-        <p><a href='./deauth_refresh_token'>Deauthenticate a Refresh Token</a></p>
-        <p><a href='./logout'>Logout</a></p>
-    </body>
+    <p>Hello {{ user }}!</p>
+    <p>This is your current token:<br /><pre>{{ token }}</pre></p>
+    <p><a href='./refresh_token'>Generate Permanent Refresh Token</a></p>
+    <p><a href='./deauth_refresh_token'>Deauthenticate a Refresh Token</a></p>
+    <p><a href='./logout'>Logout</a></p>
 {% endblock %}
