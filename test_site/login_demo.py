@@ -28,7 +28,7 @@ from uuid import uuid4
 from urllib.parse import urlparse, urljoin
 from json import dumps
 from flask import Flask, request, redirect, make_response, session, \
-    render_template, url_for, g, flash
+    render_template, url_for, g, flash, abort
 from flask_session import Session
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, HiddenField
