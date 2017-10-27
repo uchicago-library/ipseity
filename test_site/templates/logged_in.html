@@ -1,8 +1,7 @@
 {% extends "main.html" %}
 {% block body %}
-    <p>Hello {{ user }}!</p>
-    <p>This is your current token:<br /><pre>{{ token }}</pre></p>
-    <p><a href='./refresh_token'>Generate Permanent Refresh Token</a></p>
-    <p><a href='./deauth_refresh_token'>Deauthenticate a Refresh Token</a></p>
-    <p><a href='./logout'>Logout</a></p>
+    <h1>Hello {{ json_token['user'] }}!</h1>
+    <h2>Token Info</h2>
+    <p>This is your current token:<br /><pre>{{ pretty_json_token }}</pre></p>
+    <p>Here it is encoded:<br /><pre>{{ raw_token }}</pre></p>
 {% endblock %}

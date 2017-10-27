@@ -1,7 +1,7 @@
 {% extends "main.html" %}
 {% block body %}
 <center>
-    <h1>Login</h1>
+    <h1>Log In</h1>
     <br />
         <form method="POST" action="/login">
                 {{ form.csrf_token }}
@@ -14,9 +14,9 @@
                 {{ form.password.label }}<br />
                 {{ form.password() }}
             </div>
-                <div><input type=submit class="btn btn-primary" value=Submit /></div>
+                <div><input type=submit class="btn btn-primary btn-lg" value="Log In" /></div>
         </form>
     <br /> 
-    <p>Or, if you don't have a login: <a href="{{ register_url }}">Register</a></p>
+    <p>Or, if you don't have an account: <a href="{{ url_for('register') }}">Register</a></p>
 </center>
 {% endblock %}

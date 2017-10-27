@@ -1,9 +1,12 @@
 {% extends "main.html" %}
 {% block body %}
-    <b>Deauthenticate Refresh Token</b>
-    <form method="POST" action="/deauth_refresh_token">
-        {{ form.csrf_token }}
-        <div>{{ form.refresh_token.label }}: {{ form.refresh_token(class="css_class") }}</div>
-        <div><input type=submit value=Submit /></div>
-    </form>
+<center>
+        <h1>Deauthenticate Refresh Token</h1>
+            <form method="POST" action="/deauth_refresh_token">
+                {{ form.csrf_token }}
+                <div class='form-group'>{{ form.refresh_token.label }}<br />
+                    {{ form.refresh_token(size=32) }}</div>
+                <div><input type=submit  class="btn btn-danger btn-lg" value=Deauthenticate /></div>
+            </form>
+</center>
 {% endblock %}

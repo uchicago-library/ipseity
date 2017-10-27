@@ -17,9 +17,9 @@
             {{ form.confirm.label }}<br />
             {{ form.confirm() }}
         </div>
-        <div><input type=submit value=Submit /></div>
+        <div><input type=submit class="btn btn-primary btn-lg" value="Sign me up!" /></div>
     </form>
     <br />
-    <p>Already have a username and password? <a href="{{ login_url }}">Login</a></p>
+    <p>Already have a username and password? <a href="{{ url_for('login') }}">Login</a></p>
 </center>
 {% endblock %}

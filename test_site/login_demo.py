@@ -26,9 +26,12 @@ Demo of using a ipseity JWT server for authentication.
 from os import environ
 from uuid import uuid4
 from urllib.parse import urlparse, urljoin
+from flask import Flask, request, redirect, session, \
+    url_for, g, flash
 from json import dumps
-from flask import Flask, request, redirect, make_response, session, \
-    render_template, url_for, g, flash, abort
+# We're going to wrap render_template() to avoid providing the same
+# information over and over again to each call
+from flask import render_template as _render_template
 from flask_session import Session
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, HiddenField
@@ -228,15 +231,49 @@ class RegistrationForm(RedirectForm):
     next = HiddenField()
 
 
+class ChangePasswordForm(FlaskForm):
+    """
+    Form for changing passwords
+    """
+    password = PasswordField(
+        'Password',
+        validators=[
+            DataRequired(),
+            Length(min=3),
+            EqualTo('confirm', message='Passwords must match')
+        ]
+    )
+    confirm = PasswordField(
+        'Repeat Password'
+    )
+
+
 class DeauthRefreshTokenForm(FlaskForm):
     """
     Form for getting the refresh token to deauth
     """
     refresh_token = StringField(
-        'refresh_token',
+        'Refresh Token',
         validators=[
             DataRequired()
         ]
+    )
+
+
+class DeleteMeForm(FlaskForm):
+    pass
+
+
+# =====
+# Utility functions
+# =====
+def render_template(*args, **kwargs):
+    return _render_template(
+        *args,
+        external_ipseity_url=environ.get('EXTERNAL_IPSEITY_URL'),
+        json_token=g.get('json_token'),
+        raw_token=g.get('raw_token'),
+        **kwargs
     )
 
 
@@ -252,8 +289,7 @@ def root():
     if g.authenticated:
         return render_template(
             'logged_in.html',
-            user=g.json_token['user'],
-            token=dumps(g.json_token, indent=2)
+            pretty_json_token=dumps(g.json_token, indent=2)
         )
     else:
         return redirect(url_for("login"))
@@ -267,8 +303,6 @@ def root():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        if g.authenticated:
-            abort(400)
         # post, set token in session
         token_resp = requests.get(
             environ['IPSEITY_URL'] + '/auth_user',
@@ -280,20 +314,17 @@ def login():
         if token_resp.status_code != 200:
             # Incorrect username/password
             flash("Incorrect username/password", 'alert-danger')
-            return redirect(url_for("login"))
+            return redirect(url_for("login", next=request.form['next']))
         token = token_resp.text
         session['access_token'] = token
         flash("You've been logged in", 'alert-success')
         return form.redirect('root')
     else:
-        if g.authenticated:
-            flash("You must log out to log in again!", 'alert-danger')
-            return redirect(url_for("root"))
         # Get, serve the form
         return render_template(
             'login.html',
-            form=form,
-            register_url=url_for('register')
+            title="Log In",
+            form=form
         )
 
 
@@ -333,8 +364,8 @@ def register():
         # Get, serve the form
         return render_template(
             'register.html',
-            form=form,
-            login_url=url_for('login')
+            title="Register",
+            form=form
         )
 
 
@@ -352,7 +383,10 @@ def refresh_token():
     if refresh_token_response.status_code != 200:
         flash("There was a problem generating your token!", 'alert-danger')
         redirect(url_for("root"))
-    return make_response(refresh_token_response.text)
+    return render_template(
+        'display_refresh_token.html',
+        refresh_token=refresh_token_response.text
+    )
 
 
 @app.route("/deauth_refresh_token", methods=['GET', 'POST'])
@@ -373,5 +407,60 @@ def deauth_refresh_token():
     else:
         return render_template(
             'deauth_refresh_token.html',
+            title='Deauthenticate a refresh token',
+            form=form
+        )
+
+
+@app.route("/delete_me", methods=['GET', 'POST'])
+@flask_jwtlib.requires_authentication
+def delete_me():
+    form = DeleteMeForm()
+    if form.validate_on_submit():
+        del_response = requests.delete(
+            environ['IPSEITY_URL'] + '/del_user',
+            data={"access_token": g.raw_token}
+        )
+        if del_response.status_code != 200:
+            flash("There was a problem deleting your account!", "alert-danger")
+        try:
+            del session['access_token']
+        except KeyError:
+            pass
+        flash("Account deleted!", "alert-info")
+        return redirect(url_for("root"))
+    else:
+        if g.json_token['authentication_method'] != 'password':
+            flash("Account deletion requires a password based token", "alert-info")
+            return redirect("/login?next=/delete_me")
+        return render_template(
+            'delete_me.html',
+            title='Delete Your Account',
+            form=form
+        )
+
+
+@app.route("/change_pass", methods=['GET', 'POST'])
+@flask_jwtlib.requires_authentication
+def change_password():
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        change_pass_response = requests.post(
+            environ['IPSEITY_URL'] + "/change_pass",
+            data={"access_token": g.raw_token,
+                  "new_pass": request.form['password']}
+        )
+        if change_pass_response.status_code != 200:
+            flash("There was a problem changing your password!", "alert-danger")
+        else:
+            flash("Your password has been updated!", "alert-info")
+        return redirect(url_for("root"))
+    else:
+        if g.json_token['authentication_method'] != 'password':
+            flash("Password changes require a password based token", "alert-info")
+            return redirect("/login?next=/change_pass")
+        return render_template(
+            'change_pass.html',
+            title='Change Password',
             form=form
         )
