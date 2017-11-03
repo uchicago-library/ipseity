@@ -3,11 +3,10 @@ whogoesthere
 """
 import logging
 import datetime
-import json
 from functools import wraps
 from uuid import uuid4
 
-from flask import Blueprint, jsonify, Response, abort, g
+from flask import Blueprint, Response, abort, g
 from flask_restful import Resource, Api, reqparse
 
 import jwt
@@ -17,7 +16,7 @@ from pymongo import MongoClient
 
 import flask_jwtlib
 
-from .exceptions import Error, UserAlreadyExistsError, \
+from .exceptions import UserAlreadyExistsError, \
     UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError
 
 
@@ -53,14 +52,6 @@ def requires_password_authentication(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
-
-
-@BLUEPRINT.errorhandler(Error)
-def handle_errors(error):
-    log.error("An error has occured: {}".format(json.dumps(error.to_dict())))
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
 
 
 class Root(Resource):
