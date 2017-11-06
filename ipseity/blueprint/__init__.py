@@ -4,7 +4,6 @@ whogoesthere
 import logging
 import datetime
 from functools import wraps
-from uuid import uuid4
 
 from flask import Blueprint, Response, abort, g
 from flask_restful import Resource, Api, reqparse
@@ -17,7 +16,8 @@ from pymongo import MongoClient
 import flask_jwtlib
 
 from .exceptions import UserAlreadyExistsError, \
-    UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError
+    UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError, \
+    TokenTypeError
 
 
 __author__ = "Brian Balsamo"
@@ -34,6 +34,10 @@ API = Api(BLUEPRINT)
 log = logging.getLogger(__name__)
 
 
+# Register some callbacks that implement
+# API specific functionality in the library
+
+
 def required_auth_failure_callback():
     abort(401)
 
@@ -42,9 +46,26 @@ flask_jwtlib.requires_authentication.no_auth_callback = \
     required_auth_failure_callback
 
 
+def check_token(token):
+    x = flask_jwtlib._DEFAULT_CHECK_TOKEN(token)
+    if x:
+        json_token = jwt.decode(
+            token.encode(),
+            BLUEPRINT.config['PUBLIC_KEY'],
+            algorithm="RS256"
+        )
+        if json_token['token_type'] == 'access_token':
+            return True
+    return False
+
+
+flask_jwtlib.check_token = check_token
+
+
 # Decorator for functions that require using a token
 # which was generated from username/password authentication,
 # rather than refresh token.
+# Only call this _after_ flask_jwtlib.requires_authentication
 def requires_password_authentication(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -52,6 +73,27 @@ def requires_password_authentication(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def prune_disallowed_tokens(user):
+    log.debug("Pruning disallowed tokens for {}".format(user))
+    user_db_doc = BLUEPRINT.config['authentication_db']['authentication'].find_one(
+        {"user": user}
+    )
+    for x in user_db_doc['disallowed_tokens']:
+        try:
+            token = jwt.decode(
+                x.encode(),
+                BLUEPRINT.config['PUBLIC_KEY'],
+                algorithm="RS256"
+            )
+            if token['token_type'] != 'refresh_token':
+                raise TokenTypeError
+        except (jwt.InvalidTokenError, TokenTypeError):
+            BLUEPRINT.config['authentication_db']['authentication'].update_one(
+                {'user': user_db_doc['user']},
+                {"$pull": {"disallowed_tokens": x}}
+            )
 
 
 class Root(Resource):
@@ -89,7 +131,7 @@ class MakeUser(Resource):
             {
                 'user': args['user'],
                 'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt()),
-                'refresh_tokens': []
+                'disallowed_tokens': []
             }
         )
 
@@ -134,11 +176,23 @@ class AuthUser(Resource):
         if not args['pass']:
             # Token based auth
             auth_method = "refresh_token"
+            try:
+                token = jwt.decode(
+                    args['user'].encode(),
+                    BLUEPRINT.config['PUBLIC_KEY'],
+                    algorithm="RS256"
+                )
+                log.debug("Valid token provided: {}".format(args['user']))
+            except jwt.InvalidTokenError:
+                log.debug("Invalid token provided: {}".format(args['user']))
+                raise InvalidTokenError
+            if token['token_type'] != 'refresh_token':
+                raise TokenTypeError("Not a refresh token")
             user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
-                {"refresh_tokens": args['user']}
+                {"user": token['user']}
             )
-            if not user:
-                log.debug("Refresh token {} does not exist".format(args['user']))
+            if args['user'] in user['disallowed_tokens']:
+                log.debug("Refresh token {} disallowed".format(args['user']))
                 raise InvalidTokenError(args['user'])
         else:
             # username/password auth
@@ -153,16 +207,22 @@ class AuthUser(Resource):
                 log.debug("Incorrect password provided for username {}".format(args['user']))
                 raise IncorrectPasswordError(args['user'])
 
+        # Prune the users disallowed tokens, so no invalid tokens
+        # or old tokens stick in the DB
+        prune_disallowed_tokens(user['user'])
         # If we got to here we found a user, either by refresh token or
         # username/password auth
         log.debug("Assembling token for {}".format(args['user']))
         token = {
             'user': user['user'],
             'exp': datetime.datetime.utcnow() +
-            datetime.timedelta(seconds=BLUEPRINT.config.get('EXP_DELTA', 86400)),
+            datetime.timedelta(
+                seconds=BLUEPRINT.config.get('EXP_DELTA', 72000)  # 20 hours
+            ),
             'nbf': datetime.datetime.utcnow(),
             'iat': datetime.datetime.utcnow(),
-            'authentication_method': auth_method
+            'authentication_method': auth_method,
+            'token_type': 'access_token'
         }
 
         encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
@@ -185,9 +245,11 @@ class CheckToken(Resource):
                 BLUEPRINT.config['PUBLIC_KEY'],
                 algorithm="RS256"
             )
+            if token['token_type'] != "access_token":
+                raise TokenTypeError
             log.debug("Valid token provided: {}".format(args['access_token']))
             return token
-        except jwt.InvalidTokenError:
+        except (jwt.InvalidTokenError, TokenTypeError):
             log.debug("Invalid token provided: {}".format(args['access_token']))
             raise InvalidTokenError
 
@@ -219,12 +281,19 @@ class RefreshToken(Resource):
     @flask_jwtlib.requires_authentication
     @requires_password_authentication
     def get(self):
-        refresh_token = uuid4().hex
-        BLUEPRINT.config['authentication_db']['authentication'].update_one(
-            {'user': g.json_token['user']},
-            {'$push': {'refresh_tokens': refresh_token}}
-        )
-        return Response(refresh_token)
+        token = {
+            'user': g.json_token['user'],
+            'exp': datetime.datetime.utcnow() +
+            datetime.timedelta(
+                seconds=BLUEPRINT.config.get('REFRESH_EXP_DELTA', 2592000)  # a month
+            ),
+            'nbf': datetime.datetime.utcnow(),
+            'iat': datetime.datetime.utcnow(),
+            'token_type': 'refresh_token'
+        }
+        encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
+        prune_disallowed_tokens(g.json_token['user'])
+        return Response(encoded_token)
 
     @flask_jwtlib.requires_authentication
     def delete(self):
@@ -233,12 +302,22 @@ class RefreshToken(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
+        token = jwt.decode(
+            args['refresh_token'].encode(),
+            BLUEPRINT.config['PUBLIC_KEY'],
+            algorithm="RS256"
+        )
+        if token['token_type'] != 'refresh_token' or \
+                token['user'] != g.json_token['user']:
+            raise TokenTypeError
+
         res = BLUEPRINT.config['authentication_db']['authentication'].update_one(
             {'user': g.json_token['user']},
-            {'$pull': {'refresh_tokens': args['refresh_token']}}
+            {'$push': {'disallowed_tokens': args['refresh_token']}}
         )
 
         if res.modified_count > 0:
+            prune_disallowed_tokens(g.json_token['user'])
             return {"success": True}
         else:
             raise InvalidTokenError()
