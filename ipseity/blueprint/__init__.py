@@ -217,7 +217,7 @@ class AuthUser(Resource):
             'user': user['user'],
             'exp': datetime.datetime.utcnow() +
             datetime.timedelta(
-                seconds=BLUEPRINT.config.get('EXP_DELTA', 72000)  # 20 hours
+                seconds=BLUEPRINT.config.get('ACCESS_EXP_DELTA', 72000)  # 20 hours
             ),
             'nbf': datetime.datetime.utcnow(),
             'iat': datetime.datetime.utcnow(),
