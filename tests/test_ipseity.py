@@ -2,6 +2,7 @@ import unittest
 import json
 from os import environ
 from os import urandom
+from time import sleep
 
 from pymongo import MongoClient
 
@@ -297,6 +298,62 @@ class Tests(unittest.TestCase):
                                         data={'access_token': second_access_token,
                                               'new_pass': 'buzz'})
         self.assertEqual(chpass_response.status_code, 403)
+
+    def test_refresh_token_as_access_token(self):
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        # Use our first access token to generate a refresh token
+        refresh_token_response = self.app.get("/refresh_token",
+                                              data={'access_token': access_token})
+        self.assertEqual(refresh_token_response.status_code, 200)
+        refresh_token = refresh_token_response.data.decode()
+
+        # Try to use a refresh token as an access_token
+        refresh_as_access_response = self.app.get("/check",
+                                                  data={'access_token': refresh_token})
+        self.assertEqual(refresh_as_access_response.status_code, 400)
+
+        # Try to use an access token as a refresh_token
+        access_as_refresh_response = self.app.get("/auth_user",
+                                                  data={'user': access_token})
+        self.assertEqual(access_as_refresh_response.status_code, 400)
+
+    def test_expired_refresh_token(self):
+        ipseity.blueprint.BLUEPRINT.config['REFRESH_EXP_DELTA'] = 10
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        # Use our first access token to generate a refresh token
+        refresh_token_response = self.app.get("/refresh_token",
+                                              data={'access_token': access_token})
+        self.assertEqual(refresh_token_response.status_code, 200)
+        refresh_token = refresh_token_response.data.decode()
+        sleep(11)  # Let the refresh token expire
+        second_authentication_response = self.app.get("/auth_user",
+                                                      data={'user': refresh_token})
+        self.assertEqual(second_authentication_response.status_code, 400)
+        del ipseity.blueprint.BLUEPRINT.config['REFRESH_EXP_DELTA']
+
+    def test_expired_access_token(self):
+        ipseity.blueprint.BLUEPRINT.config['ACCESS_EXP_DELTA'] = 10
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        sleep(11)
+        check_response = self.app.get("/check",
+                                      data={'access_token': access_token})
+        self.assertEqual(check_response.status_code, 400)
+        del ipseity.blueprint.BLUEPRINT.config['ACCESS_EXP_DELTA']
 
 
 if __name__ == "__main__":

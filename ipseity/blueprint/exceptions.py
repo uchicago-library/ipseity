@@ -30,3 +30,8 @@ class IncorrectPasswordError(Error):
 class InvalidTokenError(Error):
     err_name = "InvalidTokenError"
     status_code = 400
+
+
+class TokenTypeError(Error):
+    err_name = "TokenTypeError"
+    status_code = 400

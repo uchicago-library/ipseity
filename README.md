@@ -118,13 +118,14 @@ Inject environmental variables appropriately at either buildtime or runtime
 
 # Environmental Variables
 ## Required
-* IPSEITY__MONGO_HOST: The IP address or hostname of the mongo server for authentication data
+* IPSEITY_MONGO_HOST: The IP address or hostname of the mongo server for authentication data
 * IPSEITY_PUBLIC_KEY: A public rsa key in ssh format
 * IPSEITY_PRIVATE_KEY: A private rsa key in ssh format
 ## Optional (defaults)
 * IPSEITY_MONGO_PORT (27017): The port the Mongo server is running on
 * IPSEITY_MONGO_DB (ipseity): The mongo db name to use to store credentials
-* IPSEITY_EXP_DELTA (86400): A length of time for tokens to remain valid, in seconds
+* IPSEITY_ACCESS_EXP_DELTA (72000): A length of time for access tokens to remain valid, in seconds
+* IPSEITY_REFRESH_EXP_DELTA (2592000): A length of time for refresh tokens to remain valid, in seconds
 * IPSEITY_VERBOSITY (WARN): The verbosity of the logs
 
 # Author
