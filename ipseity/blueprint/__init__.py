@@ -25,7 +25,7 @@ __email__ = "brian@brianbalsamo.com"
 __version__ = "0.0.1"
 
 
-BLUEPRINT = Blueprint('whogoesthere', __name__)
+BLUEPRINT = Blueprint('ipseity', __name__)
 
 BLUEPRINT.config = {}
 
@@ -46,6 +46,8 @@ flask_jwtlib.requires_authentication.no_auth_callback = \
     required_auth_failure_callback
 
 
+# Tokens aren't valid just from being signed/well-formed
+# they also have to be of type "access_token"
 def check_token(token):
     x = flask_jwtlib._DEFAULT_CHECK_TOKEN(token)
     if x:
@@ -75,6 +77,7 @@ def requires_password_authentication(f):
     return decorated
 
 
+# So that we don't store tokens forever
 def prune_disallowed_tokens(user):
     log.debug("Pruning disallowed tokens for {}".format(user))
     user_db_doc = BLUEPRINT.config['authentication_db']['authentication'].find_one(
@@ -336,7 +339,7 @@ def handle_configs(setup_state):
         int(BLUEPRINT.config.get('MONGO_PORT', 27017))
     )
     BLUEPRINT.config['authentication_db'] = \
-        authentication_client[BLUEPRINT.config.get('MONGO_DB', 'whogoesthere')]
+        authentication_client[BLUEPRINT.config.get('MONGO_DB', 'ipseity')]
 
     flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBLIC_KEY'])
 
