@@ -38,15 +38,6 @@ log = logging.getLogger(__name__)
 # Register some callbacks that implement
 # API specific functionality in the library
 
-
-def required_auth_failure_callback():
-    abort(401)
-
-
-flask_jwtlib.requires_authentication.no_auth_callback = \
-    required_auth_failure_callback
-
-
 # Tokens aren't valid just from being signed/well-formed
 # they also have to be of type "access_token"
 def check_token(token):
@@ -303,11 +294,14 @@ class RefreshToken(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        token = jwt.decode(
-            args['refresh_token'].encode(),
-            BLUEPRINT.config['PUBLIC_KEY'],
-            algorithm="RS256"
-        )
+        try:
+            token = jwt.decode(
+                args['refresh_token'].encode(),
+                BLUEPRINT.config['PUBLIC_KEY'],
+                algorithm="RS256"
+            )
+        except jwt.InvalidTokenError:
+            raise InvalidTokenError()
         if token['token_type'] != 'refresh_token' or \
                 token['user'] != g.json_token['user']:
             raise TokenTypeError
