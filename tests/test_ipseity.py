@@ -4,7 +4,7 @@ from os import environ
 from os import urandom
 from time import sleep
 
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 
 import jwt
 
@@ -78,8 +78,13 @@ class Tests(unittest.TestCase):
         # Run a local mongo on 27017 for testing
         # docker run -p 27017:27017 mongo <-- fire one up with docker if required
         self.client = MongoClient('localhost', 27017)
-        ipseity.blueprint.BLUEPRINT.config['authentication_db'] = \
-            self.client['ipseity_test']
+        ipseity.blueprint.BLUEPRINT.config['authentication_coll'] = \
+            self.client['ipseity_test']['authentication']
+        # Mimic index creation which usually happens at bootstrap
+        ipseity.blueprint.BLUEPRINT.config['authentication_coll'].create_index(
+                    [('user', ASCENDING)],
+                    unique=True
+                )
         self.app = ipseity.app.test_client()
 
     def tearDown(self):
@@ -323,7 +328,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(access_as_refresh_response.status_code, 400)
 
     def test_expired_refresh_token(self):
-        ipseity.blueprint.BLUEPRINT.config['REFRESH_EXP_DELTA'] = 10
+        ipseity.blueprint.BLUEPRINT.config['REFRESH_EXP_DELTA'] = 5
         self.test_make_user()
         # Get an access token
         authentication_response = self.app.get("/auth_user",
@@ -335,25 +340,114 @@ class Tests(unittest.TestCase):
                                               data={'access_token': access_token})
         self.assertEqual(refresh_token_response.status_code, 200)
         refresh_token = refresh_token_response.data.decode()
-        sleep(11)  # Let the refresh token expire
+        sleep(7)  # Let the refresh token expire
         second_authentication_response = self.app.get("/auth_user",
                                                       data={'user': refresh_token})
         self.assertEqual(second_authentication_response.status_code, 400)
         del ipseity.blueprint.BLUEPRINT.config['REFRESH_EXP_DELTA']
 
     def test_expired_access_token(self):
-        ipseity.blueprint.BLUEPRINT.config['ACCESS_EXP_DELTA'] = 10
+        ipseity.blueprint.BLUEPRINT.config['ACCESS_EXP_DELTA'] = 5
         self.test_make_user()
         # Get an access token
         authentication_response = self.app.get("/auth_user",
                                                data={'user': 'foo', 'pass': 'bar'})
         self.assertEqual(authentication_response.status_code, 200)
         access_token = authentication_response.data.decode()
-        sleep(11)
+        sleep(7)
         check_response = self.app.get("/check",
                                       data={'access_token': access_token})
         self.assertEqual(check_response.status_code, 400)
         del ipseity.blueprint.BLUEPRINT.config['ACCESS_EXP_DELTA']
+
+    def test_disallowed_token_pruning(self):
+        ipseity.blueprint.BLUEPRINT.config['REFRESH_EXP_DELTA'] = 10
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        # Use our first access token to generate a lot of refresh tokens
+        refresh_tokens = []
+        for _ in range(50):
+            refresh_token_response = self.app.get("/refresh_token",
+                                                  data={'access_token': access_token})
+            self.assertEqual(refresh_token_response.status_code, 200)
+            refresh_tokens.append(refresh_token_response.data.decode())
+        # Then delete them all
+        for x in refresh_tokens:
+            refresh_token_delete_response = \
+                self.app.delete("/refresh_token",
+                                data={"access_token": access_token,
+                                      "refresh_token": x})
+            self.assertEqual(refresh_token_delete_response.status_code, 200)
+        # grab our user document now - all the deleted tokens should be in there
+        user_doc = ipseity.blueprint.BLUEPRINT.config['authentication_coll'].find_one(
+            {"user": "foo"}
+        )
+        self.assertEqual(len(user_doc['disallowed_tokens']), 50)
+        # Wait for them to expire
+        sleep(11)
+        # Fire a functionality which prunes the database
+        # [authentication, getting a refresh token, deleting a refresh token]
+        # We'll use authentication
+        second_access_token_response = self.app.get("/auth_user",
+                                                    data={"user": "foo", "pass": "bar"})
+        self.assertEqual(second_access_token_response.status_code, 200)
+        # Now grab the user document again, the old tokens should be pruned
+        user_doc = ipseity.blueprint.BLUEPRINT.config['authentication_coll'].find_one(
+            {"user": "foo"}
+        )
+        self.assertEqual(len(user_doc['disallowed_tokens']), 0)
+
+    def test_unauthorized_access(self):
+        for x in ("/test", "/refresh_token"):
+            r = self.app.get(x)
+            self.assertEqual(r.status_code, 401)
+        r = self.app.delete("/del_user")
+        self.assertEqual(r.status_code, 401)
+        r = self.app.post("/change_pass")
+        self.assertEqual(r.status_code, 401)
+
+    def test_malformed_token(self):
+        r = self.app.get("/test",
+                         data={"access_token": "abc123"})
+        self.assertEqual(r.status_code, 401)
+
+    def test_delete_access_token(self):
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        delete_access_token_response = \
+            self.app.delete(
+                "/refresh_token",
+                data={
+                    "access_token": access_token,
+                    "refresh_token": access_token
+                }
+            )
+        self.assertEqual(delete_access_token_response.status_code, 400)
+
+    def test_delete_nonexistant_refresh_token(self):
+        self.test_make_user()
+        # Get an access token
+        authentication_response = self.app.get("/auth_user",
+                                               data={'user': 'foo', 'pass': 'bar'})
+        self.assertEqual(authentication_response.status_code, 200)
+        access_token = authentication_response.data.decode()
+        delete_bad_token_response = \
+            self.app.delete(
+                "/refresh_token",
+                data={
+                    "access_token": access_token,
+                    "refresh_token": "abc123"
+                }
+            )
+        self.assertEqual(delete_bad_token_response.status_code, 400)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,8 @@ from flask_restful import Resource, Api, reqparse
 import jwt
 import bcrypt
 
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
+from pymongo.errors import DuplicateKeyError
 
 import flask_jwtlib
 
@@ -36,15 +37,6 @@ log = logging.getLogger(__name__)
 
 # Register some callbacks that implement
 # API specific functionality in the library
-
-
-def required_auth_failure_callback():
-    abort(401)
-
-
-flask_jwtlib.requires_authentication.no_auth_callback = \
-    required_auth_failure_callback
-
 
 # Tokens aren't valid just from being signed/well-formed
 # they also have to be of type "access_token"
@@ -80,7 +72,7 @@ def requires_password_authentication(f):
 # So that we don't store tokens forever
 def prune_disallowed_tokens(user):
     log.debug("Pruning disallowed tokens for {}".format(user))
-    user_db_doc = BLUEPRINT.config['authentication_db']['authentication'].find_one(
+    user_db_doc = BLUEPRINT.config['authentication_coll'].find_one(
         {"user": user}
     )
     for x in user_db_doc['disallowed_tokens']:
@@ -93,7 +85,7 @@ def prune_disallowed_tokens(user):
             if token['token_type'] != 'refresh_token':
                 raise TokenTypeError
         except (jwt.InvalidTokenError, TokenTypeError):
-            BLUEPRINT.config['authentication_db']['authentication'].update_one(
+            BLUEPRINT.config['authentication_coll'].update_one(
                 {'user': user_db_doc['user']},
                 {"$pull": {"disallowed_tokens": x}}
             )
@@ -123,20 +115,17 @@ class MakeUser(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        log.debug("Attempting to create user: {}".format(args['user']))
-
-        if BLUEPRINT.config['authentication_db']['authentication'].find_one({'user': args['user']}):
-            log.info("User creation failed, user {} already exists".format(args['user']))
-            raise UserAlreadyExistsError(args['user'])
-
         log.debug("Attempting to create user {}".format(args['user']))
-        BLUEPRINT.config['authentication_db']['authentication'].insert_one(
-            {
-                'user': args['user'],
-                'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt()),
-                'disallowed_tokens': []
-            }
-        )
+        try:
+            BLUEPRINT.config['authentication_coll'].insert_one(
+                {
+                    'user': args['user'],
+                    'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt()),
+                    'disallowed_tokens': []
+                }
+            )
+        except DuplicateKeyError:
+            raise UserAlreadyExistsError(args['user'])
 
         log.info("User {} created".format(args['user']))
 
@@ -149,7 +138,7 @@ class RemoveUser(Resource):
     def delete(self):
         log.debug("Attempting to delete user: {}".format(g.json_token['user']))
 
-        res = BLUEPRINT.config['authentication_db']['authentication'].delete_one(
+        res = BLUEPRINT.config['authentication_coll'].delete_one(
             {
                 'user': g.json_token['user']
             }
@@ -191,7 +180,7 @@ class AuthUser(Resource):
                 raise InvalidTokenError
             if token['token_type'] != 'refresh_token':
                 raise TokenTypeError("Not a refresh token")
-            user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
+            user = BLUEPRINT.config['authentication_coll'].find_one(
                 {"user": token['user']}
             )
             if args['user'] in user['disallowed_tokens']:
@@ -200,7 +189,7 @@ class AuthUser(Resource):
         else:
             # username/password auth
             auth_method = "password"
-            user = BLUEPRINT.config['authentication_db']['authentication'].find_one(
+            user = BLUEPRINT.config['authentication_coll'].find_one(
                 {'user': args['user']}
             )
             if not user:
@@ -272,7 +261,7 @@ class ChangePassword(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        BLUEPRINT.config['authentication_db']['authentication'].update_one(
+        BLUEPRINT.config['authentication_coll'].update_one(
             {'user': g.json_token['user']},
             {'$set': {'password': bcrypt.hashpw(args['new_pass'].encode(), bcrypt.gensalt())}}
         )
@@ -305,16 +294,19 @@ class RefreshToken(Resource):
                             location=['form', 'header', 'cookies'])
         args = parser.parse_args()
 
-        token = jwt.decode(
-            args['refresh_token'].encode(),
-            BLUEPRINT.config['PUBLIC_KEY'],
-            algorithm="RS256"
-        )
+        try:
+            token = jwt.decode(
+                args['refresh_token'].encode(),
+                BLUEPRINT.config['PUBLIC_KEY'],
+                algorithm="RS256"
+            )
+        except jwt.InvalidTokenError:
+            raise InvalidTokenError()
         if token['token_type'] != 'refresh_token' or \
                 token['user'] != g.json_token['user']:
             raise TokenTypeError
 
-        res = BLUEPRINT.config['authentication_db']['authentication'].update_one(
+        res = BLUEPRINT.config['authentication_coll'].update_one(
             {'user': g.json_token['user']},
             {'$push': {'disallowed_tokens': args['refresh_token']}}
         )
@@ -323,7 +315,7 @@ class RefreshToken(Resource):
             prune_disallowed_tokens(g.json_token['user'])
             return {"success": True}
         else:
-            raise InvalidTokenError()
+            return {"success": False}
 
 
 @BLUEPRINT.record
@@ -338,8 +330,16 @@ def handle_configs(setup_state):
         BLUEPRINT.config['MONGO_HOST'],
         int(BLUEPRINT.config.get('MONGO_PORT', 27017))
     )
-    BLUEPRINT.config['authentication_db'] = \
+    authentication_db = \
         authentication_client[BLUEPRINT.config.get('MONGO_DB', 'ipseity')]
+
+    BLUEPRINT.config['authentication_coll'] = \
+        authentication_db[BLUEPRINT.config.get("MONGO_COLLECTION", 'authentication')]
+
+    BLUEPRINT.config['authentication_coll'].create_index(
+        [('user', ASCENDING)],
+        unique=True
+    )
 
     flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBLIC_KEY'])
 
