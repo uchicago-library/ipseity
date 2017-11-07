@@ -334,7 +334,7 @@ def handle_configs(setup_state):
         authentication_client[BLUEPRINT.config.get('MONGO_DB', 'ipseity')]
 
     BLUEPRINT.config['authentication_coll'] = \
-        authentication_db['authentication']
+        authentication_db[BLUEPRINT.config.get("MONGO_COLLECTION", 'authentication')]
 
     BLUEPRINT.config['authentication_coll'].create_index(
         [('user', ASCENDING)],
