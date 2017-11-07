@@ -1,6 +1,6 @@
 # ipseity
 
-v0.1.0
+v0.2.0
 
 [![Build Status](https://travis-ci.org/bnbalsamo/ipseity.svg?branch=master)](https://travis-ci.org/bnbalsamo/ipseity) [![Coverage Status](https://coveralls.io/repos/github/bnbalsamo/ipseity/badge.svg?branch=master)](https://coveralls.io/github/bnbalsamo/ipseity?branch=master)
 
