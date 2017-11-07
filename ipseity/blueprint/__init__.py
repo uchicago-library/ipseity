@@ -315,7 +315,7 @@ class RefreshToken(Resource):
             prune_disallowed_tokens(g.json_token['user'])
             return {"success": True}
         else:
-            raise InvalidTokenError()
+            return {"success": False}
 
 
 @BLUEPRINT.record
