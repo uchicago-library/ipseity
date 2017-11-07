@@ -12,13 +12,15 @@ An authentication API microservice
 
 [Authentication != Authorization](https://serverfault.com/questions/57077/what-is-the-difference-between-authentication-and-authorization)
 
-This microservice utilizes JWTs to provide authentication assurances to other services. Services may either use this API, or a locally cached copy of the services public key, in order to validate JWTs containg a users name.
+This microservice utilizes JWTs to provide authentication assurances to other services. Services may either use this API, or a locally cached copy of the services public key, in order to validate JWTs containing a users name, as well as some minimal subsidiary information.
 
 Don't know what a JSON Web Token (JWT) is? Read about them [here](https://jwt.io/)
 
 Credentials are held in a MongoDB collection. Passwords are salted/hashed via [bcrypt](https://pypi.python.org/pypi/bcrypt).
 
 Tokens creation and validation is handled via [PyJWT](https://pypi.python.org/pypi/PyJWT) in the server, and should probably be handled by it in your client too.
+
+I've written (and ipseity uses behind the scenes) a [handy helper library](https://github.com/bnbalsamo/flask_jwtlib) that may also be of interest to clients. It uses PyJWT itself.
 
 To see a working client/server demo:
 ```
@@ -30,7 +32,7 @@ $ firefox http://localhost:5000
 
 **DO NOT RUN THIS SERVER OVER HTTP** - user passwords will be transmitted in plaintext, use HTTPS
 
-**DO NOT LEAVE YOUR MONGO INSTANCE ACCESSIBLE TO THE INTERNET WITHOUT AUTHENTICATION** - the mongo data is cannonical, while all passwords are stored hashed usernames will be exposed, and passwords could be changed/users deleted/claims altered.
+**DO NOT LEAVE YOUR MONGO INSTANCE ACCESSIBLE TO THE INTERNET WITHOUT AUTHENTICATION** - the mongo data is cannonical, while all passwords are stored hashed, usernames will be exposed, and passwords could be changed/users deleted.
 
 **DO NOT EXPOSE YOUR PRIVATE KEY** - With knowledge of the private key anyone can create valid tokens for any user.
 
@@ -38,6 +40,8 @@ $ firefox http://localhost:5000
 
 Things this API can do:
 * Store username/passwords, validate logins
+* Generate access tokens
+* Generate/Revoke refresh tokens
 
 Things this API can't do:
 * Limit who can create an account
@@ -46,10 +50,7 @@ Things this API can't do:
     * deletion
     * password change
     * etc
-
-Things you can do with either a sidecar authentication/claims API that manipulates the underlying mongo, relying on this API for authentication, or the ability to craft valid tokens for users without their passwords (aka, having the secret key):
-* See above
-
+* Store authorization information
 
 # Debug Quickstart
 Set environmental variables appropriately
