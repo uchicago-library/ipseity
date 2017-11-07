@@ -4,7 +4,7 @@ from os import environ
 from os import urandom
 from time import sleep
 
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 
 import jwt
 
@@ -78,8 +78,13 @@ class Tests(unittest.TestCase):
         # Run a local mongo on 27017 for testing
         # docker run -p 27017:27017 mongo <-- fire one up with docker if required
         self.client = MongoClient('localhost', 27017)
-        ipseity.blueprint.BLUEPRINT.config['authentication_db'] = \
-            self.client['ipseity_test']
+        ipseity.blueprint.BLUEPRINT.config['authentication_coll'] = \
+            self.client['ipseity_test']['authentication']
+        # Mimic index creation which usually happens at bootstrap
+        ipseity.blueprint.BLUEPRINT.config['authentication_coll'].create_index(
+                    [('user', ASCENDING)],
+                    unique=True
+                )
         self.app = ipseity.app.test_client()
 
     def tearDown(self):
@@ -354,6 +359,24 @@ class Tests(unittest.TestCase):
                                       data={'access_token': access_token})
         self.assertEqual(check_response.status_code, 400)
         del ipseity.blueprint.BLUEPRINT.config['ACCESS_EXP_DELTA']
+
+    def test_disallowed_token_pruning(self):
+        pass
+
+    def test_unauthorized_access(self):
+        pass
+
+    def test_malformed_token(self):
+        pass
+
+    def test_delete_nonexistant_user(self):
+        pass
+
+    def test_delete_access_token(self):
+        pass
+
+    def test_delete_nonexistant_refresh_token(self):
+        pass
 
 
 if __name__ == "__main__":
