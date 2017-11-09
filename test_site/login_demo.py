@@ -5,19 +5,22 @@ Demo of using a ipseity JWT server for authentication.
 * IPSEITY_URL: The URL of the ipseity server
 * SESSION_MONGODB_HOST: The address of a mongo server
     to use to store sessions
+* IPSEITY_ALGO: The algorithm the ipseity server is using
+    to generate and validate tokens. NOTE: If this is not
+    an asymmetric algorithm, and the server is not advertising
+    a public key, you MUST specify it
 
 # Optional env vars
-* SERVER_NAME: Change this to what the external server
-    name looks like, primarily for use in dockerized
-    environmnets.
 * SECRET_KEY: Manually specify this flask apps secret key
     which is used to store sessions. Important if you want
     to run multiple instances sharing sessions.
 * SESSION_MONGODB_PORT: The port your $SESSION_MONGODB_HOST
     is listening on, if not 27017
-* IPSEITY_PUBKEY: The pubkey of the ipseity server,
+* IPSEITY_VERIFICATION_KEY: The verification key of the ipseity server,
     providing it explicitly will prevent periodically retrieving
-    it from the remote server
+    it from the remote server. If the algorithm specified in symmetric,
+    and the server is not advertising a public key, you MUST provide
+    this value.
 * PUBKEY_CACHE_TIMEOUT: How long, in seconds, before we check
     the ipseity server to refresh the pubkey cache
     (if in use). Defaults to 300 seconds (5 minutes)
@@ -78,9 +81,11 @@ Session(app)
 # flask_jwtlib setup
 # =====
 
+flask_jwtlib.JWT_ALGO = environ['IPSEITY_ALGO']
+
 # Setup pubkey, either static from env var or retrieved from server
-if environ.get("IPSEITY_PUBKEY"):
-    flask_jwtlib.set_permanent_signing_key(environ['IPSEITY_PUBKEY'])
+if environ.get("IPSEITY_VERIFICATION_KEY"):
+    flask_jwtlib.set_permanent_verification_key(environ['IPSEITY_VERIFICATION_KEY'])
 else:
     def retrieve_pubkey():
         pubkey_resp = requests.get(environ['IPSEITY_URL'] + "/pubkey")
@@ -89,7 +94,7 @@ else:
         pubkey = pubkey_resp.text
         return pubkey
 
-    flask_jwtlib.retrieve_signing_key = retrieve_pubkey
+    flask_jwtlib.retrieve_verification_key = retrieve_pubkey
 
 
 def get_token():
@@ -376,13 +381,16 @@ def refresh_token():
     # refresh token each time - in reality this page
     # should probably generate a new page dynamically
     # with the token on it to redirect to.
+    if g.json_token['authentication_method'] != 'password':
+        flash("Generating a refresh token requires a password based token", "alert-info")
+        return redirect("/login?next=/refresh_token")
     refresh_token_response = requests.get(
         environ['IPSEITY_URL'] + "/refresh_token",
         data={"access_token": g.raw_token}
     )
     if refresh_token_response.status_code != 200:
         flash("There was a problem generating your token!", 'alert-danger')
-        redirect(url_for("root"))
+        return redirect(url_for("root"))
     return render_template(
         'display_refresh_token.html',
         refresh_token=refresh_token_response.text

@@ -45,8 +45,8 @@ def check_token(token):
     if x:
         json_token = jwt.decode(
             token.encode(),
-            BLUEPRINT.config['PUBLIC_KEY'],
-            algorithm="RS256"
+            BLUEPRINT.config['VERIFY_KEY'],
+            algorithm=BLUEPRINT.config['ALGO']
         )
         if json_token['token_type'] == 'access_token':
             return True
@@ -79,8 +79,8 @@ def prune_disallowed_tokens(user):
         try:
             token = jwt.decode(
                 x.encode(),
-                BLUEPRINT.config['PUBLIC_KEY'],
-                algorithm="RS256"
+                BLUEPRINT.config['VERIFY_KEY'],
+                algorithm=BLUEPRINT.config['ALGO']
             )
             if token['token_type'] != 'refresh_token':
                 raise TokenTypeError
@@ -103,7 +103,13 @@ class Version(Resource):
 
 class PublicKey(Resource):
     def get(self):
-        return Response(BLUEPRINT.config['PUBLIC_KEY'])
+        # This should never happen, as the endpoint shouldn't get registered
+        # to the API object when a symmetric algo is in use, but it never
+        # hurts to be sure, I guess
+        # PS: It also helps in testing
+        if BLUEPRINT.config['VERIFY_KEY'] == BLUEPRINT.config['SIGNING_KEY']:
+            abort(404)
+        return Response(BLUEPRINT.config['VERIFY_KEY'])
 
 
 class MakeUser(Resource):
@@ -171,8 +177,8 @@ class AuthUser(Resource):
             try:
                 token = jwt.decode(
                     args['user'].encode(),
-                    BLUEPRINT.config['PUBLIC_KEY'],
-                    algorithm="RS256"
+                    BLUEPRINT.config['VERIFY_KEY'],
+                    algorithm=BLUEPRINT.config['ALGO']
                 )
                 log.debug("Valid token provided: {}".format(args['user']))
             except jwt.InvalidTokenError:
@@ -183,6 +189,10 @@ class AuthUser(Resource):
             user = BLUEPRINT.config['authentication_coll'].find_one(
                 {"user": token['user']}
             )
+            # For the case where someone has a valid refresh token, but the
+            # account has since been deleted
+            if user is None:
+                raise UserDoesNotExistError(token['user'])
             if args['user'] in user['disallowed_tokens']:
                 log.debug("Refresh token {} disallowed".format(args['user']))
                 raise InvalidTokenError(args['user'])
@@ -217,7 +227,11 @@ class AuthUser(Resource):
             'token_type': 'access_token'
         }
 
-        encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
+        encoded_token = jwt.encode(
+            token,
+            BLUEPRINT.config['SIGNING_KEY'],
+            algorithm=BLUEPRINT.config['ALGO']
+        )
         log.debug("User {} successfully authenticated".format(args['user']))
         return Response(encoded_token.decode())
 
@@ -234,8 +248,8 @@ class CheckToken(Resource):
         try:
             token = jwt.decode(
                 args['access_token'].encode(),
-                BLUEPRINT.config['PUBLIC_KEY'],
-                algorithm="RS256"
+                BLUEPRINT.config['VERIFY_KEY'],
+                algorithm=BLUEPRINT.config['ALGO']
             )
             if token['token_type'] != "access_token":
                 raise TokenTypeError
@@ -283,7 +297,11 @@ class RefreshToken(Resource):
             'iat': datetime.datetime.utcnow(),
             'token_type': 'refresh_token'
         }
-        encoded_token = jwt.encode(token, BLUEPRINT.config['PRIVATE_KEY'], algorithm='RS256')
+        encoded_token = jwt.encode(
+            token,
+            BLUEPRINT.config['SIGNING_KEY'],
+            algorithm=BLUEPRINT.config['ALGO']
+        )
         prune_disallowed_tokens(g.json_token['user'])
         return Response(encoded_token)
 
@@ -297,8 +315,8 @@ class RefreshToken(Resource):
         try:
             token = jwt.decode(
                 args['refresh_token'].encode(),
-                BLUEPRINT.config['PUBLIC_KEY'],
-                algorithm="RS256"
+                BLUEPRINT.config['VERIFY_KEY'],
+                algorithm=BLUEPRINT.config['ALGO']
             )
         except jwt.InvalidTokenError:
             raise InvalidTokenError()
@@ -341,7 +359,46 @@ def handle_configs(setup_state):
         unique=True
     )
 
-    flask_jwtlib.set_permanent_signing_key(BLUEPRINT.config['PUBLIC_KEY'])
+    if BLUEPRINT.config['ALGO'] not in jwt.algorithms.get_default_algorithms():
+        raise RuntimeError(
+            "Unsupported algorithm, select one of: {}".format(
+                ", ".join(x for x in jwt.algorithms.get_default_algorithms().keys())
+            )
+        )
+
+    asymmetric_algos = [
+        'PS256',
+        'PS384',
+        'PS512',
+        'RS256',
+        'RS384',
+        'RS512',
+        'ES256',
+        'ES384',
+        'ES512'
+    ]
+
+    if BLUEPRINT.config['ALGO'] in asymmetric_algos:
+        if BLUEPRINT.config.get("PRIVATE_KEY") is None or \
+                BLUEPRINT.config.get("PUBLIC_KEY") is None:
+            raise RuntimeError(
+                "Asymmetric algos must specify both IPSEITY_PRIVATE_KEY " +
+                "and IPSEITY_PUBLIC_KEY"
+            )
+        BLUEPRINT.config['SIGNING_KEY'] = BLUEPRINT.config['PRIVATE_KEY']
+        BLUEPRINT.config['VERIFY_KEY'] = BLUEPRINT.config['PUBLIC_KEY']
+        flask_jwtlib.set_permanent_verification_key(BLUEPRINT.config['PUBLIC_KEY'])
+        API.add_resource(PublicKey, "/pubkey")
+    else:
+        if BLUEPRINT.config.get("PRIVATE_KEY") is None or \
+                BLUEPRINT.config.get("PUBLIC_KEY") is not None:
+            raise RuntimeError(
+                "Symmetric algos must specify IPSEITY_PRIVATE_KEY " +
+                "and NOT specify IPSEITY_PUBLIC_KEY"
+            )
+        BLUEPRINT.config['SIGNING_KEY'] = BLUEPRINT.config['PRIVATE_KEY']
+        BLUEPRINT.config['VERIFY_KEY'] = BLUEPRINT.config['PRIVATE_KEY']
+        flask_jwtlib.set_permanent_verification_key(BLUEPRINT.config['PRIVATE_KEY'])
 
     if BLUEPRINT.config.get("VERBOSITY"):
         log.debug("Setting verbosity to {}".format(str(BLUEPRINT.config['VERBOSITY'])))
@@ -353,7 +410,6 @@ def handle_configs(setup_state):
 
 API.add_resource(Root, "/")
 API.add_resource(Version, "/version")
-API.add_resource(PublicKey, "/pubkey")
 API.add_resource(MakeUser, "/make_user")
 API.add_resource(RemoveUser, "/del_user")
 API.add_resource(AuthUser, "/auth_user")
