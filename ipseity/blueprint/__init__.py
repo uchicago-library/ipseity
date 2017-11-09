@@ -4,6 +4,7 @@ whogoesthere
 import logging
 import datetime
 from functools import wraps
+from uuid import uuid4
 
 from flask import Blueprint, Response, abort, g
 from flask_restful import Resource, Api, reqparse
@@ -126,6 +127,7 @@ class MakeUser(Resource):
             BLUEPRINT.config['authentication_coll'].insert_one(
                 {
                     'user': args['user'],
+                    'uid': uuid4().hex,
                     'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt()),
                     'disallowed_tokens': []
                 }
@@ -193,6 +195,11 @@ class AuthUser(Resource):
             # account has since been deleted
             if user is None:
                 raise UserDoesNotExistError(token['user'])
+            if token['uid'] != user['uid']:
+                # This is a valid token, but the account has been deleted
+                # since it was created, so it could be a new user. This
+                # token can't work anymore
+                raise InvalidTokenError(token['user'])
             if args['user'] in user['disallowed_tokens']:
                 log.debug("Refresh token {} disallowed".format(args['user']))
                 raise InvalidTokenError(args['user'])
@@ -287,6 +294,13 @@ class RefreshToken(Resource):
     @flask_jwtlib.requires_authentication
     @requires_password_authentication
     def get(self):
+        # we need their uid for the fresh token
+        user_db_doc = BLUEPRINT.config['authentication_coll'].find_one(
+            {"user": g.json_token['user']}
+        )
+        if user_db_doc is None:
+            # I don't think this is possible, but it never hurts to be sure.
+            abort(500)
         token = {
             'user': g.json_token['user'],
             'exp': datetime.datetime.utcnow() +
@@ -295,7 +309,8 @@ class RefreshToken(Resource):
             ),
             'nbf': datetime.datetime.utcnow(),
             'iat': datetime.datetime.utcnow(),
-            'token_type': 'refresh_token'
+            'token_type': 'refresh_token',
+            'uid': user_db_doc['uid']
         }
         encoded_token = jwt.encode(
             token,
