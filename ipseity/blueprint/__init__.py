@@ -341,7 +341,7 @@ def handle_configs(setup_state):
         unique=True
     )
 
-    flask_jwtlib.set_permanent_pubkey(BLUEPRINT.config['PUBLIC_KEY'])
+    flask_jwtlib.set_permanent_signing_key(BLUEPRINT.config['PUBLIC_KEY'])
 
     if BLUEPRINT.config.get("VERBOSITY"):
         log.debug("Setting verbosity to {}".format(str(BLUEPRINT.config['VERBOSITY'])))

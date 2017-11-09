@@ -68,7 +68,7 @@ AUyLcfa1WTibE8n9Ih7BPE8EtL4KUyk15MBRGMeOgsjCRoIcmL6OssyqTYXlIbYr
 ipseity.app.config['PUBLIC_KEY'] = \
     ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY']
 
-flask_jwtlib.set_permanent_pubkey(ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY'])
+flask_jwtlib.set_permanent_signing_key(ipseity.blueprint.BLUEPRINT.config['PUBLIC_KEY'])
 
 
 class Tests(unittest.TestCase):
