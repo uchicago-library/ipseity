@@ -80,7 +80,7 @@ Session(app)
 
 # Setup pubkey, either static from env var or retrieved from server
 if environ.get("IPSEITY_PUBKEY"):
-    flask_jwtlib.set_permanent_pubkey(environ['IPSEITY_PUBKEY'])
+    flask_jwtlib.set_permanent_signing_key(environ['IPSEITY_PUBKEY'])
 else:
     def retrieve_pubkey():
         pubkey_resp = requests.get(environ['IPSEITY_URL'] + "/pubkey")
@@ -89,7 +89,7 @@ else:
         pubkey = pubkey_resp.text
         return pubkey
 
-    flask_jwtlib.retrieve_pubkey = retrieve_pubkey
+    flask_jwtlib.retrieve_signing_key = retrieve_pubkey
 
 
 def get_token():
@@ -128,11 +128,11 @@ def optional_auth_fail_callback():
         pass
 
 
-flask_jwtlib.requires_authentication.no_auth_callback = \
+flask_jwtlib.requires_authentication_failure_callback = \
     required_auth_fail_callback
 
 
-flask_jwtlib.optional_authentication.no_auth_callback = \
+flask_jwtlib.optional_authentication_failure_callback = \
     optional_auth_fail_callback
 
 
