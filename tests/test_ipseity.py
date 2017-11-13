@@ -238,7 +238,7 @@ class Mixin:
 
         authentication_response = self.app.get("/auth_user",
                                                data={'user': 'foo', 'pass': 'bar'})
-        self.assertEqual(authentication_response.status_code, 404)
+        self.assertEqual(authentication_response.status_code, 403)
 
     def test_refresh_token(self):
         self.test_make_user()

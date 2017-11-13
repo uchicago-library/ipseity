@@ -17,6 +17,11 @@ class UserAlreadyExistsError(Error):
     status_code = 403
 
 
+class UserDeactivatedError(Error):
+    err_name = "UserDeactivatedError"
+    status_code = 403
+
+
 class UserDoesNotExistError(Error):
     err_name = "UserDoesNotExistError"
     status_code = 404

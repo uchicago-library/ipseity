@@ -19,7 +19,7 @@ import flask_jwtlib
 
 from .exceptions import UserAlreadyExistsError, \
     UserDoesNotExistError, IncorrectPasswordError, InvalidTokenError, \
-    TokenTypeError
+    TokenTypeError, UserDeactivatedError
 
 
 __author__ = "Brian Balsamo"
@@ -129,7 +129,8 @@ class MakeUser(Resource):
                     'user': args['user'],
                     'uid': uuid4().hex,
                     'password': bcrypt.hashpw(args['pass'].encode(), bcrypt.gensalt()),
-                    'disallowed_tokens': []
+                    'disallowed_tokens': [],
+                    'active': True
                 }
             )
         except DuplicateKeyError:
@@ -146,13 +147,12 @@ class RemoveUser(Resource):
     def delete(self):
         log.debug("Attempting to delete user: {}".format(g.json_token['user']))
 
-        res = BLUEPRINT.config['authentication_coll'].delete_one(
-            {
-                'user': g.json_token['user']
-            }
+        res = BLUEPRINT.config['authentication_coll'].update_one(
+            {'user': g.json_token['user']},
+            {'$set': {'active': False}}
         )
 
-        if res.deleted_count == 1:
+        if res.modified_count == 1:
             # success
             log.info("User {} deleted".format(g.json_token['user']))
             return {"success": True}
@@ -219,6 +219,9 @@ class AuthUser(Resource):
         # Prune the users disallowed tokens, so no invalid tokens
         # or old tokens stick in the DB
         prune_disallowed_tokens(user['user'])
+
+        if not user['active']:
+            raise UserDeactivatedError(user['user'])
         # If we got to here we found a user, either by refresh token or
         # username/password auth
         log.debug("Assembling token for {}".format(args['user']))
