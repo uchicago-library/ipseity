@@ -7,6 +7,7 @@ services:
             context: .
         environment:
             IPSEITY_MONGO_HOST: mongo
+            IPSEITY_ALGO: RS256
             IPSEITY_PUBLIC_KEY: |-
                 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCmuP2ryLX32wqVXoKzE
                 MjX5JaOSxUnUC3SzuVpzUO0DRvWanKuvV7IhgGPboEWKbcUrSJIfVeGtD9p6Coov
@@ -51,6 +52,7 @@ services:
         environment:
             SESSION_MONGODB_HOST: mongo
             IPSEITY_URL: http://ipseity
+            IPSEITY_ALGO: RS256
         ports: 
             - 5000:80
         depends_on:
