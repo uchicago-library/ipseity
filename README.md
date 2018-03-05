@@ -2,7 +2,7 @@
 
 v0.3.0
 
-[![Build Status](https://travis-ci.org/bnbalsamo/ipseity.svg?branch=master)](https://travis-ci.org/bnbalsamo/ipseity) [![Coverage Status](https://coveralls.io/repos/github/bnbalsamo/ipseity/badge.svg?branch=master)](https://coveralls.io/github/bnbalsamo/ipseity?branch=master)
+[![Build Status](https://travis-ci.org/uchicago-library/ipseity.svg?branch=master)](https://travis-ci.org/uchicago-library/ipseity) [![Coverage Status](https://coveralls.io/repos/github/uchicago-library/ipseity/badge.svg?branch=master)](https://coveralls.io/github/uchicago-library/ipseity?branch=master)
 
 
 ipseity (noun): selfhood; individual identity, individuality
@@ -20,7 +20,7 @@ Credentials are held in a MongoDB collection. Passwords are salted/hashed via [b
 
 Tokens creation and validation is handled via [PyJWT](https://pypi.python.org/pypi/PyJWT) in the server, and should probably be handled by it in your client too.
 
-I've written (and ipseity uses behind the scenes) a [handy helper library](https://github.com/bnbalsamo/flask_jwtlib) that may also be of interest to clients. It uses PyJWT itself.
+I've written (and ipseity uses behind the scenes) a [handy helper library](https://github.com/uchicago-library/flask_jwtlib) that may also be of interest to clients. It uses PyJWT itself.
 
 To see a working client/server demo:
 ```
